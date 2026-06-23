@@ -9,6 +9,7 @@
     padding: 0;
     width: 100%;
     height: 100%;
+    height: 100dvh;
     background: #0C0B0B;
     overflow: hidden;
   }
@@ -16,6 +17,12 @@
     display: block;
     width: 100vw;
     height: 100vh;
+    height: 100dvh;
+  }
+  @media (max-width: 600px) {
+    #topImage {
+      width: 760px !important;
+    }
   }
 </style>
 </head>
@@ -80,11 +87,16 @@ let dpr = window.devicePixelRatio || 1;
 const topImageEl = document.getElementById('topImage');
 const whyImageEl = document.getElementById('whyImage');
 
+function getViewH() {
+  return window.visualViewport ? window.visualViewport.height : window.innerHeight;
+}
+
 function resize() {
+  const vh = getViewH();
   canvas.width = window.innerWidth * dpr;
-  canvas.height = window.innerHeight * dpr;
+  canvas.height = vh * dpr;
   canvas.style.width = window.innerWidth + 'px';
-  canvas.style.height = window.innerHeight + 'px';
+  canvas.style.height = vh + 'px';
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   updateScale();
   buildGrid();
@@ -93,7 +105,7 @@ function resize() {
 function buildGrid() {
   dots = [];
   const w = window.innerWidth;
-  const h = window.innerHeight;
+  const h = getViewH();
 
   // 화면 중앙 기준으로 격자를 배치해서 잘림이 자연스럽게 보이도록 함
   const cols = Math.ceil(w / SPACING_X) + 3; // 어긋난 줄을 위해 여유 컬럼 추가
@@ -116,7 +128,7 @@ function buildGrid() {
 
 function animate() {
   ctx.fillStyle = BG_COLOR;
-  ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+  ctx.fillRect(0, 0, window.innerWidth, getViewH());
 
   // 이미지 영역 (약간의 여유 패딩 포함) - 이 영역과 겹치는 도트는 그리지 않음
   let imgBox = null;
