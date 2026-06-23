@@ -163,9 +163,10 @@ function animate() {
     let targetX = dot.ox;
     let targetY = dot.oy;
 
-    if (dist < AVOID_RADIUS) {
+    const activeRadius = mouse.isTouch ? AVOID_RADIUS * 2.5 : AVOID_RADIUS;
+    if (dist < activeRadius) {
       // 가까울수록 더 세게 밀어냄 (0~1 비율)
-      const strength = (1 - dist / AVOID_RADIUS);
+      const strength = (1 - dist / activeRadius);
       const angle = Math.atan2(dy, dx);
       const push = strength * MAX_PUSH;
       targetX = dot.ox + Math.cos(angle) * push;
@@ -211,11 +212,13 @@ window.addEventListener('touchmove', (e) => {
   const touch = e.touches[0];
   mouse.x = touch.clientX;
   mouse.y = touch.clientY;
+  mouse.isTouch = true;
 }, { passive: false });
 
 window.addEventListener('touchend', () => {
   mouse.x = -9999;
   mouse.y = -9999;
+  mouse.isTouch = false;
 });
 
 window.addEventListener('resize', resize);
