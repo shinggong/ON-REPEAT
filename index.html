@@ -194,6 +194,18 @@ window.addEventListener('mouseleave', () => {
   mouse.y = -9999;
 });
 
+window.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  const touch = e.touches[0];
+  mouse.x = touch.clientX;
+  mouse.y = touch.clientY;
+}, { passive: false });
+
+window.addEventListener('touchend', () => {
+  mouse.x = -9999;
+  mouse.y = -9999;
+});
+
 window.addEventListener('resize', resize);
 
 resize();
