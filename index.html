@@ -185,6 +185,8 @@ function animate() {
 window.addEventListener('mousemove', (e) => {
   mouse.x = e.clientX;
   mouse.y = e.clientY;
+  const zone = getZone(e.clientX);
+  if (zone !== lastZone) { lastZone = zone; goTo(zone); }
 });
 
 window.addEventListener('touchmove', (e) => {
@@ -193,6 +195,8 @@ window.addEventListener('touchmove', (e) => {
   mouse.x = touch.clientX;
   mouse.y = touch.clientY;
   mouse.isTouch = true;
+  const zone = getZone(touch.clientX);
+  if (zone !== lastZone) { lastZone = zone; goTo(zone); }
 }, { passive: false });
 
 window.addEventListener('mouseleave', () => {
@@ -212,38 +216,156 @@ window.addEventListener('touchend', () => {
 
 
 
-// ---- Idle 스프라이트 애니메이션 ----
+// ---- 캐릭터 스프라이트 상태머신 ----
 const idleCanvas = document.getElementById('idleCanvas');
 const idleCtx = idleCanvas.getContext('2d');
-const IDLE_COLS = 6;
-const IDLE_TOTAL = 27;
-const IDLE_FRAME_SIZE = 960;
-const IDLE_FPS = 24;
-
-const idleImg = new Image();
-idleImg.src = 'idle.webp';
-
-let idleFrame = 0;
-
 idleCanvas.width = 960;
 idleCanvas.height = 960;
 
-idleImg.onload = () => {
-  setInterval(() => {
-    const col = idleFrame % IDLE_COLS;
-    const row = Math.floor(idleFrame / IDLE_COLS);
-    idleCtx.clearRect(0, 0, 960, 960);
-    idleCtx.drawImage(idleImg,
-      col * IDLE_FRAME_SIZE, row * IDLE_FRAME_SIZE,
-      IDLE_FRAME_SIZE, IDLE_FRAME_SIZE,
-      0, 0, 960, 960
-    );
-    idleFrame = (idleFrame + 1) % IDLE_TOTAL;
-  }, 1000 / IDLE_FPS);
+const FRAME_SIZE = 960;
+const FPS = 24;
+
+const SPRITES = {
+  idle:           { src: 'idle.webp',           cols: 6, total: 30 },
+  front_lefttop:  { src: 'front_lefttop.webp',  cols: 8, total: 67 },
+  lefttop_top:    { src: 'lefttop_top.webp',    cols: 6, total: 32 },
+  top_righttop:   { src: 'top_righttop.webp',   cols: 8, total: 64 },
+  righttop_front: { src: 'righttop_front.webp', cols: 6, total: 36 },
 };
 
-// whyImageEl을 idleCanvas로 교체
-const whyImageEl = idleCanvas;
+// 이미지 프리로드
+const imgs = {};
+let loadedCount = 0;
+Object.entries(SPRITES).forEach(([key, s]) => {
+  const img = new Image();
+  img.src = s.src;
+  img.onload = () => { loadedCount++; if (loadedCount === Object.keys(SPRITES).length) startIdle(); };
+  imgs[key] = img;
+});
+
+// 상태: front, lefttop, top, righttop
+let charState = 'front';
+let animKey = 'idle';
+let animFrame = 0;
+let animReverse = false;
+let animLoop = true;
+let animOnEnd = null;
+let animTimer = null;
+
+// 전환 체인 정의 (state → state: [{key, reverse}])
+const TRANSITIONS = {
+  front: {
+    lefttop:  [{ key: 'front_lefttop', rev: false }],
+    righttop: [{ key: 'righttop_front', rev: true }],
+    top:      [{ key: 'front_lefttop', rev: false }, { key: 'lefttop_top', rev: false }],
+  },
+  lefttop: {
+    front:    [{ key: 'front_lefttop', rev: true }],
+    top:      [{ key: 'lefttop_top', rev: false }],
+    righttop: [{ key: 'front_lefttop', rev: true }, { key: 'righttop_front', rev: true }],
+  },
+  top: {
+    righttop: [{ key: 'top_righttop', rev: false }],
+    lefttop:  [{ key: 'lefttop_top', rev: true }],
+    front:    [{ key: 'lefttop_top', rev: true }, { key: 'front_lefttop', rev: true }],
+  },
+  righttop: {
+    front:    [{ key: 'righttop_front', rev: false }],
+    top:      [{ key: 'top_righttop', rev: true }],
+    lefttop:  [{ key: 'righttop_front', rev: false }, { key: 'front_lefttop', rev: false }],
+  },
+};
+
+// 상태별 도착 위치
+const STATE_ENDS = {
+  front_lefttop:  { fwd: 'lefttop', rev: 'front' },
+  lefttop_top:    { fwd: 'top',     rev: 'lefttop' },
+  top_righttop:   { fwd: 'righttop', rev: 'top' },
+  righttop_front: { fwd: 'front',   rev: 'righttop' },
+};
+
+function drawFrame(key, frame) {
+  const s = SPRITES[key];
+  const col = frame % s.cols;
+  const row = Math.floor(frame / s.cols);
+  idleCtx.clearRect(0, 0, 960, 960);
+  idleCtx.drawImage(imgs[key], col * FRAME_SIZE, row * FRAME_SIZE, FRAME_SIZE, FRAME_SIZE, 0, 0, 960, 960);
+}
+
+function playAnim(key, reverse, loop, onEnd) {
+  if (animTimer) clearInterval(animTimer);
+  animKey = key;
+  animReverse = reverse;
+  animLoop = loop;
+  animOnEnd = onEnd;
+  const s = SPRITES[key];
+  animFrame = reverse ? s.total - 1 : 0;
+  drawFrame(key, animFrame);
+
+  animTimer = setInterval(() => {
+    animFrame += reverse ? -1 : 1;
+    const done = reverse ? animFrame < 0 : animFrame >= s.total;
+    if (done) {
+      if (loop) {
+        animFrame = reverse ? s.total - 1 : 0;
+      } else {
+        clearInterval(animTimer);
+        animFrame = reverse ? 0 : s.total - 1;
+        drawFrame(key, animFrame);
+        if (onEnd) onEnd();
+        return;
+      }
+    }
+    drawFrame(key, animFrame);
+  }, 1000 / FPS);
+}
+
+function startIdle() {
+  playAnim('idle', false, true, null);
+}
+
+let transQueue = [];
+let isTransitioning = false;
+let pendingZone = null;
+
+function runQueue() {
+  if (transQueue.length === 0) {
+    isTransitioning = false;
+    if (pendingZone && pendingZone !== charState) {
+      const z = pendingZone; pendingZone = null;
+      goTo(z);
+    } else {
+      // 도착 후 idle이면 루프
+      if (charState === 'front') startIdle();
+    }
+    return;
+  }
+  const { key, rev } = transQueue.shift();
+  const ends = STATE_ENDS[key];
+  isTransitioning = true;
+  playAnim(key, rev, false, () => {
+    charState = rev ? ends.rev : ends.fwd;
+    runQueue();
+  });
+}
+
+function goTo(target) {
+  if (target === charState) return;
+  if (isTransitioning) { pendingZone = target; return; }
+  const chain = TRANSITIONS[charState]?.[target];
+  if (!chain) return;
+  transQueue = [...chain];
+  runQueue();
+}
+
+function getZone(x) {
+  const w = window.innerWidth;
+  if (x < w * 0.33) return 'lefttop';
+  if (x > w * 0.66) return 'righttop';
+  return 'front';
+}
+
+let lastZone = 'front';
 
 window.addEventListener('resize', resize);
 
