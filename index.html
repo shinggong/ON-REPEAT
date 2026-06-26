@@ -221,7 +221,8 @@ idleCanvas.width = 960;
 idleCanvas.height = 960;
 
 const FRAME_SIZE = 960;
-const FPS = 72;
+const FPS_IDLE = 24;
+const FPS_TRANS = 108; // 기존 72 * 1.5
 
 const SPRITES = {
   idle:           { src: 'idle.webp',           cols: 6, total: 30 },
@@ -333,31 +334,54 @@ function drawFrame(key, frame) {
 }
 
 function playAnim(key, reverse, loop, onEnd) {
-  if (animTimer) clearInterval(animTimer);
+  if (animTimer) cancelAnimationFrame(animTimer);
   animKey = key;
   animReverse = reverse;
   animLoop = loop;
   animOnEnd = onEnd;
   const s = SPRITES[key];
+  const isIdle = key === 'idle';
+  const baseFps = isIdle ? FPS_IDLE : FPS_TRANS;
   animFrame = reverse ? s.total - 1 : 0;
   drawFrame(key, animFrame);
 
-  animTimer = setInterval(() => {
-    animFrame += reverse ? -1 : 1;
-    const done = reverse ? animFrame < 0 : animFrame >= s.total;
-    if (done) {
-      if (loop) {
-        animFrame = reverse ? s.total - 1 : 0;
-      } else {
-        clearInterval(animTimer);
-        animFrame = reverse ? 0 : s.total - 1;
-        drawFrame(key, animFrame);
-        if (onEnd) onEnd();
-        return;
-      }
+  let lastTime = performance.now();
+  let subFrame = 0;
+
+  function tick(now) {
+    const elapsed = now - lastTime;
+    lastTime = now;
+
+    let speed = 1;
+    if (!isIdle) {
+      // ease-out: 처음 2x 빠르고 끝 0.5x 느리게
+      const progress = animFrame / Math.max(s.total - 1, 1);
+      speed = 2.0 - 1.5 * progress;
     }
-    drawFrame(key, animFrame);
-  }, 1000 / FPS);
+
+    subFrame += (elapsed / (1000 / baseFps)) * speed;
+
+    while (subFrame >= 1) {
+      subFrame -= 1;
+      animFrame += reverse ? -1 : 1;
+      const done = reverse ? animFrame < 0 : animFrame >= s.total;
+      if (done) {
+        if (loop) {
+          animFrame = reverse ? s.total - 1 : 0;
+        } else {
+          animFrame = reverse ? 0 : s.total - 1;
+          drawFrame(key, animFrame);
+          if (onEnd) onEnd();
+          return;
+        }
+      }
+      drawFrame(key, animFrame);
+    }
+
+    animTimer = requestAnimationFrame(tick);
+  }
+
+  animTimer = requestAnimationFrame(tick);
 }
 
 function startIdle() {
