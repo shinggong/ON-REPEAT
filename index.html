@@ -265,12 +265,14 @@ const FPS_IDLE = 24;
 const FPS_TRANS = 60;
 
 const SPRITES = {
-  idle:           { src: 'idle.webp',           cols: 6, total: 27 },
-  front_lefttop:  { src: 'front_lefttop.webp',  cols: 8, total: 67 },
-  lefttop_top:    { src: 'lefttop_top.webp',    cols: 6, total: 32 },
-  top_righttop:   { src: 'top_righttop.webp',   cols: 8, total: 59 },
-  righttop_front: { src: 'righttop_front.webp', cols: 6, total: 36 },
-  shake:          { src: 'shake.webp',           cols: 6, total: 56 },
+  idle:              { src: 'idle.webp',              cols: 6, total: 27 },
+  front_lefttop:     { src: 'front_lefttop.webp',     cols: 8, total: 67 },
+  lefttop_top:       { src: 'lefttop_top.webp',       cols: 6, total: 32 },
+  top_righttop:      { src: 'top_righttop.webp',      cols: 8, total: 59 },
+  righttop_front:    { src: 'righttop_front.webp',    cols: 6, total: 36 },
+  lefttop_leftdown:  { src: 'lefttop_leftdown.webp',  cols: 8, total: 64 },
+  leftdown_front:    { src: 'leftdown_front.webp',    cols: 6, total: 33 },
+  shake:             { src: 'shake.webp',              cols: 6, total: 56 },
 };
 
 // 이미지 프리로드
@@ -295,33 +297,45 @@ let animTimer = null;
 // 전환 체인 정의 (state → state: [{key, reverse}])
 const TRANSITIONS = {
   front: {
-    lefttop:  [{ key: 'front_lefttop', rev: false }],
-    righttop: [{ key: 'righttop_front', rev: true }],
-    top:      [{ key: 'front_lefttop', rev: false }, { key: 'lefttop_top', rev: false }],
+    lefttop:   [{ key: 'front_lefttop', rev: false }],
+    righttop:  [{ key: 'righttop_front', rev: true }],
+    top:       [{ key: 'front_lefttop', rev: false }, { key: 'lefttop_top', rev: false }],
+    leftdown:  [{ key: 'leftdown_front', rev: true }],
   },
   lefttop: {
-    front:    [{ key: 'front_lefttop', rev: true }],
-    top:      [{ key: 'lefttop_top', rev: false }],
-    righttop: [{ key: 'lefttop_top', rev: false }, { key: 'top_righttop', rev: false }],
+    front:     [{ key: 'front_lefttop', rev: true }],
+    top:       [{ key: 'lefttop_top', rev: false }],
+    righttop:  [{ key: 'lefttop_top', rev: false }, { key: 'top_righttop', rev: false }],
+    leftdown:  [{ key: 'lefttop_leftdown', rev: false }],
   },
   top: {
-    righttop: [{ key: 'top_righttop', rev: false }],
-    lefttop:  [{ key: 'lefttop_top', rev: true }],
-    front:    [{ key: 'lefttop_top', rev: true }, { key: 'front_lefttop', rev: true }],
+    righttop:  [{ key: 'top_righttop', rev: false }],
+    lefttop:   [{ key: 'lefttop_top', rev: true }],
+    front:     [{ key: 'lefttop_top', rev: true }, { key: 'front_lefttop', rev: true }],
+    leftdown:  [{ key: 'lefttop_top', rev: true }, { key: 'lefttop_leftdown', rev: false }],
   },
   righttop: {
-    front:    [{ key: 'righttop_front', rev: false }],
-    top:      [{ key: 'top_righttop', rev: true }],
-    lefttop:  [{ key: 'top_righttop', rev: true }, { key: 'lefttop_top', rev: true }],
+    front:     [{ key: 'righttop_front', rev: false }],
+    top:       [{ key: 'top_righttop', rev: true }],
+    lefttop:   [{ key: 'top_righttop', rev: true }, { key: 'lefttop_top', rev: true }],
+    leftdown:  [{ key: 'top_righttop', rev: true }, { key: 'lefttop_top', rev: true }, { key: 'lefttop_leftdown', rev: false }],
+  },
+  leftdown: {
+    front:     [{ key: 'leftdown_front', rev: false }],
+    lefttop:   [{ key: 'lefttop_leftdown', rev: true }],
+    top:       [{ key: 'lefttop_leftdown', rev: true }, { key: 'lefttop_top', rev: false }],
+    righttop:  [{ key: 'lefttop_leftdown', rev: true }, { key: 'lefttop_top', rev: false }, { key: 'top_righttop', rev: false }],
   },
 };
 
 // 상태별 도착 위치
 const STATE_ENDS = {
-  front_lefttop:  { fwd: 'lefttop', rev: 'front' },
-  lefttop_top:    { fwd: 'top',     rev: 'lefttop' },
-  top_righttop:   { fwd: 'righttop', rev: 'top' },
-  righttop_front: { fwd: 'front',   rev: 'righttop' },
+  front_lefttop:    { fwd: 'lefttop',   rev: 'front' },
+  lefttop_top:      { fwd: 'top',       rev: 'lefttop' },
+  top_righttop:     { fwd: 'righttop',  rev: 'top' },
+  righttop_front:   { fwd: 'front',     rev: 'righttop' },
+  lefttop_leftdown: { fwd: 'leftdown',  rev: 'lefttop' },
+  leftdown_front:   { fwd: 'front',     rev: 'leftdown' },
 };
 
 const PUPIL_R = 26;
@@ -523,10 +537,13 @@ function goTo(target) {
 
 function getZone(x, y) {
   const rect = idleCanvas.getBoundingClientRect();
-  if (x < rect.left + rect.width * 0.30) return 'lefttop';
-  if (x > rect.right - rect.width * 0.30) return 'righttop';
-  // 이미지 안: 위 절반 → top, 아래 절반 → front
-  if (y < rect.top + rect.height * 0.5) return 'top';
+  const isLeft = x < rect.left + rect.width * 0.30;
+  const isRight = x > rect.right - rect.width * 0.30;
+  const isTop = y < rect.top + rect.height * 0.5;
+  if (isLeft && isTop) return 'lefttop';
+  if (isLeft && !isTop) return 'leftdown';
+  if (isRight) return 'righttop';
+  if (isTop) return 'top';
   return 'front';
 }
 
