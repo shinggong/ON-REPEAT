@@ -286,6 +286,28 @@ const STATE_ENDS = {
 const PUPIL_R = 26;
 const PUPIL_LIMIT = 0.42;
 let EYE_DATA = null;
+let eyeRedrawTimer = null;
+let eyeStaticKey = null;
+let eyeStaticFrame = null;
+
+function startEyeRedraw(key, frame) {
+  if (eyeRedrawTimer) cancelAnimationFrame(eyeRedrawTimer);
+  eyeStaticKey = key;
+  eyeStaticFrame = frame;
+  function loop() {
+    idleCtx.clearRect(0, 0, 960, 960);
+    drawEyes(eyeStaticKey, eyeStaticFrame);
+    idleCtx.drawImage(imgs[eyeStaticKey],
+      (eyeStaticFrame % SPRITES[eyeStaticKey].cols) * FRAME_SIZE,
+      Math.floor(eyeStaticFrame / SPRITES[eyeStaticKey].cols) * FRAME_SIZE,
+      FRAME_SIZE, FRAME_SIZE, 0, 0, 960, 960);
+    eyeRedrawTimer = requestAnimationFrame(loop);
+  }
+  eyeRedrawTimer = requestAnimationFrame(loop);
+}
+function stopEyeRedraw() {
+  if (eyeRedrawTimer) { cancelAnimationFrame(eyeRedrawTimer); eyeRedrawTimer = null; }
+}
 
 fetch('eye_data.json').then(r=>r.json()).then(d=>{ EYE_DATA=d; });
 
@@ -301,9 +323,9 @@ function drawEyes(key, frame) {
   const my = (mouse.y - rect.top) * scaleY;
 
   for (const [cx,cy,rx,ry] of frameEyes) {
-    // 흰자
+    // 흰자 (살짝 여유롭게)
     idleCtx.beginPath();
-    idleCtx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI*2);
+    idleCtx.ellipse(cx, cy, rx * 1.2, ry * 1.2, 0, 0, Math.PI*2);
     idleCtx.fillStyle = '#ffffff';
     idleCtx.fill();
 
@@ -336,6 +358,7 @@ function drawFrame(key, frame) {
 
 function playAnim(key, reverse, loop, onEnd) {
   if (animTimer) cancelAnimationFrame(animTimer);
+  stopEyeRedraw();
   animKey = key;
   animReverse = reverse;
   animLoop = loop;
@@ -400,8 +423,12 @@ function runQueue() {
       const z = pendingZone; pendingZone = null;
       goTo(z);
     } else {
-      // 도착 후 idle이면 루프
-      if (charState === 'front') startIdle();
+      if (charState === 'front') {
+        startIdle();
+      } else {
+        // front 외 상태: 마지막 프레임 유지 + 눈동자 계속 업데이트
+        startEyeRedraw(key, animFrame);
+      }
     }
     return;
   }
