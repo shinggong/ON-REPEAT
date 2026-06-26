@@ -387,11 +387,9 @@ function startEyeRedraw(key, frame) {
   function loop() {
     // 이미지가 완전히 로드된 경우에만 clearRect (미로드 시 기존 프레임 유지)
     if (img && img.complete && img.naturalWidth) {
-      try {
-        idleCtx.clearRect(0, 0, 960, 960);
-        drawEyes(capturedKey, capturedFrame);
-        idleCtx.drawImage(img, sx, sy, FRAME_SIZE, FRAME_SIZE, 0, 0, 960, 960);
-      } catch(e) { /* drawImage 실패 시 다음 프레임에서 재시도 */ }
+      idleCtx.clearRect(0, 0, 960, 960);
+      try { drawEyes(capturedKey, capturedFrame); } catch(e) {}
+      try { idleCtx.drawImage(img, sx, sy, FRAME_SIZE, FRAME_SIZE, 0, 0, 960, 960); } catch(e) {}
     }
     eyeRedrawTimer = requestAnimationFrame(loop);
   }
@@ -441,8 +439,8 @@ function drawEyes(key, frame) {
       [cx, cy, rx, ry] = e;
     }
 
-    const isIdleKey = !isShakeAnim && key === 'idle';
-    const eyeScale = isIdleKey ? 1.5 : 1.5; // 모든 상태 동일
+    if (!rx || !ry || isNaN(rx) || isNaN(ry) || rx <= 0 || ry <= 0) continue;
+    const eyeScale = 1.5;
     const sRx = rx * eyeScale;
     const sRy = ry * eyeScale;
     idleCtx.beginPath();
@@ -481,8 +479,8 @@ function drawFrame(key, frame) {
   const row = Math.floor(frame / s.cols);
 
   idleCtx.clearRect(0, 0, 960, 960);
-  drawEyes(key, frame);
-  idleCtx.drawImage(img, col*FRAME_SIZE, row*FRAME_SIZE, FRAME_SIZE, FRAME_SIZE, 0, 0, 960, 960);
+  try { drawEyes(key, frame); } catch(e) {}
+  try { idleCtx.drawImage(img, col*FRAME_SIZE, row*FRAME_SIZE, FRAME_SIZE, FRAME_SIZE, 0, 0, 960, 960); } catch(e) {}
 }
 
 function playAnim(key, reverse, loop, onEnd) {
