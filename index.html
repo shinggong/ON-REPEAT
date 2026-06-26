@@ -517,6 +517,30 @@ window.addEventListener('resize', resize);
 
 resize();
 animate();
+
+// ---- 존 경계 디버그 오버레이 ----
+const overlay = document.createElement('div');
+overlay.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9999;font-family:monospace;';
+overlay.innerHTML = `
+  <div id="zl" style="position:absolute;top:0;bottom:0;width:2px;background:rgba(255,100,100,0.7);"></div>
+  <div id="zr" style="position:absolute;top:0;bottom:0;width:2px;background:rgba(100,100,255,0.7);"></div>
+  <div id="zlabel-l" style="position:absolute;top:12px;color:rgba(255,100,100,0.9);font-size:11px;transform:translateX(-50%);">lefttop</div>
+  <div id="zlabel-i" style="position:absolute;top:12px;color:rgba(200,200,200,0.9);font-size:11px;transform:translateX(-50%);">idle</div>
+  <div id="zlabel-r" style="position:absolute;top:12px;color:rgba(100,100,255,0.9);font-size:11px;transform:translateX(-50%);">righttop</div>
+`;
+document.body.appendChild(overlay);
+function updateOverlay() {
+  const w = window.innerWidth;
+  const lx = Math.round(w * 0.30);
+  const rx = Math.round(w * 0.70);
+  overlay.querySelector('#zl').style.left = lx + 'px';
+  overlay.querySelector('#zr').style.left = rx + 'px';
+  overlay.querySelector('#zlabel-l').style.left = (lx / 2) + 'px';
+  overlay.querySelector('#zlabel-i').style.left = ((lx + rx) / 2) + 'px';
+  overlay.querySelector('#zlabel-r').style.left = ((rx + w) / 2) + 'px';
+}
+updateOverlay();
+window.addEventListener('resize', updateOverlay);
 </script>
 </body>
 </html>
