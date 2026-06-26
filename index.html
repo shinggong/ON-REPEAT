@@ -14,7 +14,8 @@
     overflow: hidden;
     cursor: url('cursor.png') 4 4, auto;
   }
-  * { cursor: url('cursor.png') 4 4, auto !important; }
+  *, *::before, *::after { cursor: url('cursor.png') 4 4, auto !important; }
+  #player-ui, #player-ui * { cursor: url('cursor.png') 4 4, auto !important; }
   #dotCanvas {
     display: block;
     width: 100vw;
@@ -428,10 +429,10 @@ function drawEyes(key, frame) {
       if (target) {
         // 초기화
         if (ec.cx === null) { ec.cx = target[0]; ec.cy = target[1]; ec.rx = target[2]; ec.ry = target[3]; }
-        ec.cx += (target[0] - ec.cx) * 0.15;
-        ec.cy += (target[1] - ec.cy) * 0.15;
-        ec.rx += (target[2] - ec.rx) * 0.15;
-        ec.ry += (target[3] - ec.ry) * 0.15;
+        ec.cx += (target[0] - ec.cx) * 0.45;
+        ec.cy += (target[1] - ec.cy) * 0.45;
+        ec.rx += (target[2] - ec.rx) * 0.45;
+        ec.ry += (target[3] - ec.ry) * 0.45;
       }
       if (ec.cx === null) continue;
       cx = ec.cx; cy = ec.cy; rx = ec.rx; ry = ec.ry;
@@ -499,7 +500,7 @@ function playAnim(key, reverse, loop, onEnd) {
   let subFrame = 0;
 
   function tick(now) {
-    const elapsed = Math.min(now - lastTime, 100); // 탭 전환 등 큰 딜레이 방지
+    const elapsed = Math.min(now - lastTime, 33); // 최대 2프레임 이상 스킵 방지
     lastTime = now;
 
     let speed = 1;
@@ -567,7 +568,7 @@ function runQueue() {
       goTo(z);
     } else {
       if (charState === 'front') {
-        startIdle();
+        startIdle(true);
       } else {
         // front 외 상태: 마지막 프레임 유지 + 눈동자 계속 업데이트
         startEyeRedraw(animKey, animFrame);
@@ -703,7 +704,7 @@ function triggerShake() {
   playAnim('shake', false, false, () => {
     isShaking = false;
     charState = prevState;
-    if (prevState === 'front') startIdle();
+    if (prevState === 'front') startIdle(true);
     else startEyeRedraw(prevKey, prevFrame);
     resetIdleTimer();
   });
