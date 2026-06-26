@@ -325,8 +325,8 @@ function drawEyes(key, frame) {
   for (const [cx,cy,rx,ry] of frameEyes) {
     // 헤드폰 귀마개 오탐지 제거: 세로가 가로의 2배 이상이면 스킵
     if (ry / rx > 2) continue;
-    // 흰자 (idle은 더 크게)
-    const eyeScale = key === 'idle' ? 1.5 : 1.2;
+    // 흰자 크기: idle 1.5x, 전환 애니 1.4x
+    const eyeScale = key === 'idle' ? 1.5 : 1.4;
     idleCtx.beginPath();
     idleCtx.ellipse(cx, cy, rx * eyeScale, ry * eyeScale, 0, 0, Math.PI*2);
     idleCtx.fillStyle = '#ffffff';
@@ -455,9 +455,9 @@ function goTo(target) {
 
 function getZone(x) {
   const w = window.innerWidth;
-  if (x < w * 0.33) return 'lefttop';
-  if (x > w * 0.66) return 'righttop';
-  return 'front';
+  if (x < w * 0.25) return 'lefttop';
+  if (x > w * 0.75) return 'righttop';
+  return 'top';
 }
 
 let lastZone = 'front';
@@ -472,6 +472,8 @@ window.addEventListener('mousemove', (e) => {
 window.addEventListener('mouseleave', () => {
   mouse.x = -9999;
   mouse.y = -9999;
+  lastZone = 'front';
+  goTo('front');
 });
 
 window.addEventListener('touchmove', (e) => {
@@ -488,6 +490,8 @@ window.addEventListener('touchend', () => {
   mouse.x = -9999;
   mouse.y = -9999;
   mouse.isTouch = false;
+  lastZone = 'front';
+  goTo('front');
 });
 
 window.addEventListener('resize', resize);
