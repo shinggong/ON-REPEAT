@@ -12,6 +12,7 @@
     height: 100%;
     background: #0C0B0B;
     overflow: hidden;
+    cursor: url('cursor.png') 0 0, auto;
   }
   #dotCanvas {
     display: block;
@@ -269,6 +270,7 @@ const SPRITES = {
   lefttop_top:    { src: 'lefttop_top.webp',    cols: 6, total: 32 },
   top_righttop:   { src: 'top_righttop.webp',   cols: 8, total: 59 },
   righttop_front: { src: 'righttop_front.webp', cols: 6, total: 36 },
+  shake:          { src: 'shake.webp',           cols: 6, total: 56 },
 };
 
 // 이미지 프리로드
@@ -567,6 +569,40 @@ window.addEventListener('touchend', () => {
   mouse.isTouch = false;
   lastZone = 'front';
   goTo('front');
+});
+
+// 얼굴 클릭 → shake
+let isShaking = false;
+function isFaceClick(x, y) {
+  const rect = idleCanvas.getBoundingClientRect();
+  const rx = (x - rect.left) / rect.width;
+  const ry = (y - rect.top) / rect.height;
+  return rx > 0.2 && rx < 0.8 && ry > 0.1 && ry < 0.85;
+}
+idleCanvas.addEventListener('click', (e) => {
+  if (isShaking) return;
+  if (!isFaceClick(e.clientX, e.clientY)) return;
+  isShaking = true;
+  if (animTimer) cancelAnimationFrame(animTimer);
+  stopEyeRedraw();
+  playAnim('shake', false, false, () => {
+    isShaking = false;
+    if (charState === 'front') startIdle();
+    else startEyeRedraw(animKey, animFrame);
+  });
+});
+idleCanvas.addEventListener('touchend', (e) => {
+  if (isShaking) return;
+  const touch = e.changedTouches[0];
+  if (!isFaceClick(touch.clientX, touch.clientY)) return;
+  isShaking = true;
+  if (animTimer) cancelAnimationFrame(animTimer);
+  stopEyeRedraw();
+  playAnim('shake', false, false, () => {
+    isShaking = false;
+    if (charState === 'front') startIdle();
+    else startEyeRedraw(animKey, animFrame);
+  });
 });
 
 window.addEventListener('resize', resize);
