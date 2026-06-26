@@ -323,6 +323,8 @@ function drawEyes(key, frame) {
   const my = (mouse.y - rect.top) * scaleY;
 
   for (const [cx,cy,rx,ry] of frameEyes) {
+    // 헤드폰 귀마개 오탐지 제거: 세로가 가로의 2배 이상이면 스킵
+    if (ry / rx > 2) continue;
     // 흰자 (살짝 여유롭게)
     idleCtx.beginPath();
     idleCtx.ellipse(cx, cy, rx * 1.2, ry * 1.2, 0, 0, Math.PI*2);
