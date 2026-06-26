@@ -473,12 +473,18 @@ function getZone(x) {
 }
 
 let lastZone = 'front';
+let idleTimeout = null;
+function resetIdleTimer() {
+  clearTimeout(idleTimeout);
+  idleTimeout = setTimeout(() => { lastZone = 'front'; goTo('front'); }, 2000);
+}
 
 window.addEventListener('mousemove', (e) => {
   mouse.x = e.clientX;
   mouse.y = e.clientY;
   const zone = getZone(e.clientX);
   if (zone !== lastZone) { lastZone = zone; goTo(zone); }
+  resetIdleTimer();
 });
 
 window.addEventListener('mouseleave', () => {
@@ -496,6 +502,7 @@ window.addEventListener('touchmove', (e) => {
   mouse.isTouch = true;
   const zone = getZone(touch.clientX);
   if (zone !== lastZone) { lastZone = zone; goTo(zone); }
+  resetIdleTimer();
 }, { passive: false });
 
 window.addEventListener('touchend', () => {
