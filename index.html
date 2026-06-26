@@ -24,6 +24,45 @@
 </head>
 <body>
 <canvas id="dotCanvas"></canvas>
+<div id="yt-hidden"></div>
+
+<!-- 커스텀 플레이어 UI -->
+<div id="player-ui" style="
+  position: fixed;
+  bottom: env(safe-area-inset-bottom, 0px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(420px, 90vw);
+  background: rgba(20,18,18,0.85);
+  backdrop-filter: blur(12px);
+  border-radius: 18px;
+  padding: 14px 18px 12px;
+  z-index: 50;
+  color: #fff;
+  font-family: -apple-system, sans-serif;
+  user-select: none;
+  margin-bottom: 12px;
+">
+  <div id="track-title" style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:10px;opacity:0.9;">
+    불러오는 중…
+  </div>
+
+  <!-- 진행 바 -->
+  <div id="progress-track" style="height:3px;background:rgba(255,255,255,0.15);border-radius:2px;margin-bottom:10px;cursor:pointer;" onclick="seekTo(event)">
+    <div id="progress-bar" style="height:100%;width:0%;background:#BD5A8C;border-radius:2px;transition:width 0.4s linear;"></div>
+  </div>
+
+  <!-- 컨트롤 -->
+  <div style="display:flex;align-items:center;justify-content:space-between;">
+    <span id="track-time" style="font-size:11px;opacity:0.5;">0:00 / 0:00</span>
+    <div style="display:flex;gap:20px;align-items:center;">
+      <button onclick="ytPlayer&&ytPlayer.previousVideo()" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer;opacity:0.7;padding:0;">⏮</button>
+      <button id="btn-play" onclick="togglePlay()" style="background:#BD5A8C;border:none;color:#fff;font-size:20px;cursor:pointer;width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;">▶</button>
+      <button onclick="ytPlayer&&ytPlayer.nextVideo()" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer;opacity:0.7;padding:0;">⏭</button>
+    </div>
+    <div style="width:60px;"></div>
+  </div>
+</div>
 
 <canvas id="idleCanvas" style="
   position: absolute;
@@ -427,7 +466,15 @@ function playAnim(key, reverse, loop, onEnd) {
 }
 
 function startIdle() {
-  playAnim('idle', false, true, null);
+  if (isPlaying) {
+    playAnim('idle', false, true, null);
+  } else {
+    // 재생 중 아닐 때: idle 첫 프레임 정지
+    if (animTimer) cancelAnimationFrame(animTimer);
+    stopEyeRedraw();
+    drawFrame('idle', 0);
+    startEyeRedraw('idle', 0);
+  }
 }
 
 let transQueue = [];
@@ -526,6 +573,63 @@ window.addEventListener('resize', resize);
 
 resize();
 animate();
+
+// ---- YouTube 플레이어 ----
+let isPlaying = false;
+let ytPlayer = null;
+
+const ytTag = document.createElement('script');
+ytTag.src = 'https://www.youtube.com/iframe_api';
+document.head.appendChild(ytTag);
+
+function togglePlay() {
+  if (!ytPlayer) return;
+  isPlaying ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
+}
+function seekTo(e) {
+  if (!ytPlayer) return;
+  const bar = document.getElementById('progress-track');
+  const pct = e.offsetX / bar.offsetWidth;
+  ytPlayer.seekTo(ytPlayer.getDuration() * pct, true);
+}
+
+window.onYouTubeIframeAPIReady = function() {
+  ytPlayer = new YT.Player('yt-hidden', {
+    height: '0', width: '0',
+    playerVars: { listType: 'playlist', list: 'PLoLcQauVqTcb6ZqANuUYPvsEbum3n4V8_', autoplay: 0 },
+    events: {
+      onReady: () => updateTrackUI(),
+      onStateChange: (e) => {
+        isPlaying = e.data === YT.PlayerState.PLAYING;
+        if (charState === 'front') startIdle();
+        updateTrackUI();
+        updateProgress();
+      }
+    }
+  });
+};
+
+function updateTrackUI() {
+  if (!ytPlayer || !ytPlayer.getVideoData) return;
+  const data = ytPlayer.getVideoData();
+  document.getElementById('track-title').textContent = data.title || '';
+  document.getElementById('btn-play').textContent = isPlaying ? '⏸' : '▶';
+}
+
+let progressTimer = null;
+function updateProgress() {
+  clearInterval(progressTimer);
+  if (!isPlaying) return;
+  progressTimer = setInterval(() => {
+    if (!ytPlayer || !ytPlayer.getCurrentTime) return;
+    const cur = ytPlayer.getCurrentTime();
+    const dur = ytPlayer.getDuration();
+    const pct = dur > 0 ? (cur / dur) * 100 : 0;
+    document.getElementById('progress-bar').style.width = pct + '%';
+    const fmt = s => `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+    document.getElementById('track-time').textContent = `${fmt(cur)} / ${fmt(dur)}`;
+  }, 500);
+}
 
 // ---- 존 경계 디버그 오버레이 ----
 const overlay = document.createElement('div');
