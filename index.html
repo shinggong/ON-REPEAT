@@ -523,6 +523,7 @@ function runQueue() {
 }
 
 function goTo(target) {
+  if (isShaking) return;
   if (target === charState) return;
   if (isTransitioning) { pendingZone = target; return; }
   const chain = TRANSITIONS[charState]?.[target];
