@@ -27,9 +27,9 @@
 
 <canvas id="idleCanvas" style="
   position: absolute;
-  top: 50%;
+  bottom: calc(0px - env(safe-area-inset-bottom, 0px));
   left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translateX(-50%);
   width: 420px;
   height: 420px;
   z-index: 20;
@@ -142,17 +142,7 @@ function animate() {
       bottom: rect.bottom + pad,
     };
   }
-
-  let whyBox = null;
-  if (whyImageEl) {
-    const rect = whyImageEl.getBoundingClientRect();
-    const pad = DOT_RADIUS;
-    whyBox = {
-      left: rect.left - pad,
-      right: rect.right + pad,
-      top: rect.top - pad,
-      bottom: rect.bottom + pad,
-    };
+;
   }
 
   for (const dot of dots) {
@@ -180,11 +170,6 @@ function animate() {
     if (imgBox &&
         dot.x > imgBox.left && dot.x < imgBox.right &&
         dot.y > imgBox.top && dot.y < imgBox.bottom) {
-      continue;
-    }
-    if (whyBox &&
-        dot.x > whyBox.left && dot.x < whyBox.right &&
-        dot.y > whyBox.top && dot.y < whyBox.bottom) {
       continue;
     }
 
