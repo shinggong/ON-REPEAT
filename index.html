@@ -467,8 +467,8 @@ function goTo(target) {
 
 function getZone(x, y) {
   const rect = idleCanvas.getBoundingClientRect();
-  if (x < rect.left)  return 'lefttop';
-  if (x > rect.right) return 'righttop';
+  if (x < rect.left + rect.width * 0.30) return 'lefttop';
+  if (x > rect.right - rect.width * 0.30) return 'righttop';
   // 이미지 안: 위 절반 → top, 아래 절반 → front
   if (y < rect.top + rect.height * 0.5) return 'top';
   return 'front';
@@ -536,8 +536,8 @@ document.body.appendChild(overlay);
 function updateOverlay() {
   const rect = idleCanvas.getBoundingClientRect();
   const midY = rect.top + rect.height * 0.5;
-  overlay.querySelector('#zl').style.left = rect.left + 'px';
-  overlay.querySelector('#zr').style.left = rect.right + 'px';
+  overlay.querySelector('#zl').style.left = (rect.left + rect.width * 0.30) + 'px';
+  overlay.querySelector('#zr').style.left = (rect.right - rect.width * 0.30) + 'px';
   overlay.querySelector('#zmy').style.top = midY + 'px';
   overlay.querySelector('#zlabel-l').style.left = (rect.left / 2) + 'px';
   overlay.querySelector('#zlabel-r').style.left = ((rect.right + window.innerWidth) / 2) + 'px';
