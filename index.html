@@ -286,6 +286,8 @@ const STATE_ENDS = {
 const PUPIL_R = 26;
 const PUPIL_LIMIT = 0.42;
 let EYE_DATA = null;
+// 눈동자 lerp 상태 (최대 2개 눈)
+const pupilCurrent = [{ox:0,oy:0},{ox:0,oy:0}];
 let eyeRedrawTimer = null;
 let eyeStaticKey = null;
 let eyeStaticFrame = null;
@@ -328,7 +330,8 @@ function drawEyes(key, frame) {
   const mx = (mouse.x - rect.left) * scaleX;
   const my = (mouse.y - rect.top) * scaleY;
 
-  for (const [cx,cy,rx,ry] of frameEyes) {
+  for (let eyeIdx = 0; eyeIdx < frameEyes.length; eyeIdx++) {
+    const [cx,cy,rx,ry] = frameEyes[eyeIdx];
     // 헤드폰 귀마개 오탐지 제거: 세로가 가로의 2배 이상이면 스킵
     if (ry / rx > 2) continue;
     // 흰자 크기: idle 1.5x, 전환 애니 1.4x
@@ -338,16 +341,19 @@ function drawEyes(key, frame) {
     idleCtx.fillStyle = '#ffffff';
     idleCtx.fill();
 
-    // 동공: 항상 마우스 방향, 눈 안에서 최대한 이동
+    // 동공 목표 위치 계산
     const dx = mx - cx, dy = my - cy;
     const dist = Math.sqrt(dx*dx + dy*dy);
-    // 가로/세로 이동량 분리: 눈이 좁아도 좌우로는 최대한 이동
     const limitX = Math.max(0, rx - PUPIL_R * 0.9);
     const limitY = Math.max(0, ry - PUPIL_R * 0.9);
-    const ox = dist > 0 ? Math.min(Math.abs(dx), limitX) * (dx < 0 ? -1 : 1) : 0;
-    const oy = dist > 0 ? Math.min(Math.abs(dy), limitY) * (dy < 0 ? -1 : 1) : 0;
+    const targetOx = dist > 0 ? Math.min(Math.abs(dx), limitX) * (dx < 0 ? -1 : 1) : 0;
+    const targetOy = dist > 0 ? Math.min(Math.abs(dy), limitY) * (dy < 0 ? -1 : 1) : 0;
+    // lerp: 현재 위치 → 목표 위치로 부드럽게
+    const p = pupilCurrent[eyeIdx];
+    p.ox += (targetOx - p.ox) * 0.10;
+    p.oy += (targetOy - p.oy) * 0.10;
     idleCtx.beginPath();
-    idleCtx.arc(cx + ox, cy + oy, PUPIL_R, 0, Math.PI*2);
+    idleCtx.arc(cx + p.ox, cy + p.oy, PUPIL_R, 0, Math.PI*2);
     idleCtx.fillStyle = '#111';
     idleCtx.fill();
   }
