@@ -14,7 +14,6 @@
     overflow: hidden;
     cursor: url('cursor.png') 0 0, auto;
   }
-  #blur-overlay { position:fixed; inset:0; backdrop-filter:blur(40px); -webkit-backdrop-filter:blur(40px); z-index:5; pointer-events:none; }
   #dotCanvas {
     display: block;
     width: 100vw;
@@ -26,13 +25,12 @@
 </head>
 <body>
 <canvas id="dotCanvas"></canvas>
-<div id="blur-overlay"></div>
 <div id="yt-hidden"></div>
 
 <!-- 커스텀 플레이어 UI -->
 <div id="player-ui" style="
   position: fixed;
-  bottom: env(safe-area-inset-bottom, 16px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 40px);
   left: 50%;
   transform: translateX(-50%);
   width: min(420px, 90vw);
@@ -84,7 +82,7 @@
   transform: translateX(-50%);
   width: 380px;
   z-index: 10;
-  pointer-events: auto;
+  pointer-events: none;
 " />
 
 
@@ -670,9 +668,9 @@ function seekTo(e) {
 window.onYouTubeIframeAPIReady = function() {
   ytPlayer = new YT.Player('yt-hidden', {
     height: '0', width: '0',
-    playerVars: { listType: 'playlist', list: 'PLclKxWEml0RE', autoplay: 1 },
+    playerVars: { listType: 'playlist', list: 'PLclKxWEml0RE', autoplay: 1, mute: 1 },
     events: {
-      onReady: (e) => { e.target.playVideo(); updateTrackUI(); },
+      onReady: (e) => { e.target.unMute(); e.target.playVideo(); updateTrackUI(); },
       onStateChange: (e) => {
         isPlaying = e.data === YT.PlayerState.PLAYING;
         if (charState === 'front') startIdle();
