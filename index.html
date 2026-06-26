@@ -12,7 +12,7 @@
     height: 100%;
     background: #0C0B0B;
     overflow: hidden;
-    cursor: url('cursor.png') 0 0, auto;
+    cursor: url('cursor.png') 4 4, auto;
   }
   #dotCanvas {
     display: block;
@@ -375,11 +375,14 @@ function startEyeRedraw(key, frame) {
   const sx = (capturedFrame % sprite.cols) * FRAME_SIZE;
   const sy = Math.floor(capturedFrame / sprite.cols) * FRAME_SIZE;
   function loop() {
-    try {
-      idleCtx.clearRect(0, 0, 960, 960);
-      drawEyes(capturedKey, capturedFrame);
-      idleCtx.drawImage(img, sx, sy, FRAME_SIZE, FRAME_SIZE, 0, 0, 960, 960);
-    } catch(e) { /* 에러 시 다음 프레임에서 재시도 */ }
+    // 이미지가 완전히 로드된 경우에만 clearRect (미로드 시 기존 프레임 유지)
+    if (img && img.complete && img.naturalWidth) {
+      try {
+        idleCtx.clearRect(0, 0, 960, 960);
+        drawEyes(capturedKey, capturedFrame);
+        idleCtx.drawImage(img, sx, sy, FRAME_SIZE, FRAME_SIZE, 0, 0, 960, 960);
+      } catch(e) { /* drawImage 실패 시 다음 프레임에서 재시도 */ }
+    }
     eyeRedrawTimer = requestAnimationFrame(loop);
   }
   eyeRedrawTimer = requestAnimationFrame(loop);
@@ -484,7 +487,10 @@ function playAnim(key, reverse, loop, onEnd) {
           animFrame = reverse ? s.total - 1 : 0;
         } else {
           animFrame = reverse ? 0 : s.total - 1;
-          try { drawFrame(key, animFrame); } catch(e) {}
+          const drawImg = imgs[key];
+          if (drawImg && drawImg.complete && drawImg.naturalWidth) {
+            try { drawFrame(key, animFrame); } catch(e) {}
+          }
           if (onEnd) onEnd();
           return;
         }
