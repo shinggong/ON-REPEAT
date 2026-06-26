@@ -425,16 +425,13 @@ function drawEyes(key, frame) {
 
     if (isShakeAnim) {
       const ec = eyeCenterCurrent[eyeIdx];
-      // 이 눈 인덱스에 유효한 타겟이 있으면 lerp
       const target = validEyes[eyeIdx];
       if (target) {
-        // 초기화
+        // 유효한 감지 위치로 즉시 스냅 (단, 초기화 전이면 설정)
         if (ec.cx === null) { ec.cx = target[0]; ec.cy = target[1]; ec.rx = target[2]; ec.ry = target[3]; }
-        ec.cx = target[0];
-        ec.cy = target[1];
-        ec.rx = target[2];
-        ec.ry = target[3];
+        else { ec.cx = target[0]; ec.cy = target[1]; ec.rx = target[2]; ec.ry = target[3]; }
       }
+      // 감지 실패한 프레임은 마지막 알려진 위치 유지
       if (ec.cx === null) continue;
       cx = ec.cx; cy = ec.cy; rx = ec.rx; ry = ec.ry;
     } else {
@@ -444,22 +441,26 @@ function drawEyes(key, frame) {
       [cx, cy, rx, ry] = e;
     }
 
-    const eyeScale = (!isShakeAnim && key === 'idle') ? 1.5 : 1.4;
+    const isIdleKey = !isShakeAnim && key === 'idle';
+    const eyeScale = isIdleKey ? 1.5 : 1.5; // 모든 상태 동일
+    const sRx = rx * eyeScale;
+    const sRy = ry * eyeScale;
     idleCtx.beginPath();
-    idleCtx.ellipse(cx, cy, rx * eyeScale, ry * eyeScale, 0, 0, Math.PI*2);
+    idleCtx.ellipse(cx, cy, sRx, sRy, 0, 0, Math.PI*2);
     idleCtx.fillStyle = '#ffffff';
     idleCtx.fill();
 
     const p = pupilCurrent[eyeIdx];
     if (isShakeAnim) {
-      // shake 중에는 마우스 무시, 동공은 얼굴 중심에 고정
+      // shake: 동공 중심 고정
       p.ox += (0 - p.ox) * 0.15;
       p.oy += (0 - p.oy) * 0.15;
     } else {
       const dx = mx - cx, dy = my - cy;
       const dist = Math.sqrt(dx*dx + dy*dy);
-      const limitX = Math.max(0, rx - PUPIL_R * 0.6);
-      const limitY = Math.max(0, ry - PUPIL_R * 0.6);
+      // 동공이 흰자 안에 80% 이상 보이도록 제한
+      const limitX = Math.max(0, sRx - PUPIL_R * 0.8);
+      const limitY = Math.max(0, sRy - PUPIL_R * 0.8);
       const targetOx = dist > 0 ? Math.min(Math.abs(dx), limitX) * (dx < 0 ? -1 : 1) : 0;
       const targetOy = dist > 0 ? Math.min(Math.abs(dy), limitY) * (dy < 0 ? -1 : 1) : 0;
       p.ox += (targetOx - p.ox) * 0.10;
