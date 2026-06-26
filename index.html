@@ -14,8 +14,9 @@
     overflow: hidden;
     cursor: url('cursor.png') 4 4, auto;
   }
-  *, *::before, *::after { cursor: url('cursor.png') 4 4, auto !important; }
+  *, *::before, *::after { cursor: url('cursor.png') 4 4, auto !important; user-select: none !important; -webkit-user-select: none !important; }
   #player-ui, #player-ui * { cursor: url('cursor.png') 4 4, auto !important; }
+  canvas { -webkit-user-drag: none; }
   #dotCanvas {
     display: block;
     width: 100vw;
@@ -413,8 +414,8 @@ function drawEyes(key, frame) {
   const mx = (mouse.x - rect.left) * scaleX;
   const my = (mouse.y - rect.top) * scaleY;
 
-  // shake: 유효한 눈 후보 필터링 (ry/rx > 2 제거)
-  const validEyes = frameEyes.filter(([cx,cy,rx,ry]) => ry/rx <= 2);
+  // shake: 유효한 눈 후보 필터링 + cx 기준 정렬 (왼쪽=0, 오른쪽=1 고정)
+  const validEyes = frameEyes.filter(([cx,cy,rx,ry]) => ry/rx <= 2).sort((a,b) => a[0]-b[0]);
 
   const eyeCount = isShakeAnim ? 2 : frameEyes.length;
 
