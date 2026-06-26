@@ -307,13 +307,16 @@ function drawEyes(key, frame) {
     idleCtx.fillStyle = '#ffffff';
     idleCtx.fill();
 
-    // 동공
-    const dx = mx-cx, dy = my-cy;
-    const dist = Math.sqrt(dx*dx+dy*dy);
-    const maxMove = Math.min(rx,ry)*PUPIL_LIMIT;
-    const s2 = dist>0 ? Math.min(1,maxMove/dist) : 0;
+    // 동공: 항상 마우스 방향, 눈 안에서 최대한 이동
+    const dx = mx - cx, dy = my - cy;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const maxMove = Math.min(rx, ry) * 0.7;
+    // dist가 0이면 중앙, 아니면 항상 방향 유지하고 maxMove까지 이동
+    const move = dist > 0 ? Math.min(dist, maxMove) : 0;
+    const ux = dist > 0 ? dx/dist : 0;
+    const uy = dist > 0 ? dy/dist : 0;
     idleCtx.beginPath();
-    idleCtx.arc(cx+dx*s2, cy+dy*s2, PUPIL_R, 0, Math.PI*2);
+    idleCtx.arc(cx + ux*move, cy + uy*move, PUPIL_R, 0, Math.PI*2);
     idleCtx.fillStyle = '#111';
     idleCtx.fill();
   }
@@ -324,12 +327,11 @@ function drawFrame(key, frame) {
   const col = frame % s.cols;
   const row = Math.floor(frame / s.cols);
 
-  // 눈을 먼저 그리고, 캐릭터를 destination-over로 뒤에 깔기
   idleCtx.clearRect(0, 0, 960, 960);
+  // 1. 눈 먼저 그리기
   drawEyes(key, frame);
-  idleCtx.globalCompositeOperation = 'destination-over';
+  // 2. 캐릭터를 source-over로 위에 → 투명 구멍(eye hole)으로 눈이 보임
   idleCtx.drawImage(imgs[key], col*FRAME_SIZE, row*FRAME_SIZE, FRAME_SIZE, FRAME_SIZE, 0, 0, 960, 960);
-  idleCtx.globalCompositeOperation = 'source-over';
 }
 
 function playAnim(key, reverse, loop, onEnd) {
