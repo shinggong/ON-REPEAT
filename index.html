@@ -271,7 +271,7 @@ const SPRITES = {
   righttop_front:    { src: 'righttop_front.webp',    cols: 6, total: 36 },
   lefttop_leftdown:  { src: 'lefttop_leftdown.webp',  cols: 8, total: 64 },
   leftdown_front:    { src: 'leftdown_front.webp',    cols: 6, total: 33 },
-  shake:             { src: 'shake.webp',              cols: 6, total: 56 },
+  shake:             { src: 'shake.webp',              cols: 6, total: 56, fps: 30 },
 };
 
 // 이미지 프리로드
@@ -435,7 +435,7 @@ function playAnim(key, reverse, loop, onEnd) {
   animOnEnd = onEnd;
   const s = SPRITES[key];
   const isIdle = key === 'idle';
-  const baseFps = isIdle ? FPS_IDLE : FPS_TRANS;
+  const baseFps = s.fps ?? (isIdle ? FPS_IDLE : FPS_TRANS);
   animFrame = reverse ? s.total - 1 : 0;
   drawFrame(key, animFrame);
 
@@ -656,9 +656,9 @@ function tryUnmute() {
   ytPlayer.unMute();
   ytPlayer.setVolume(100);
 }
-window.addEventListener('mousemove', tryUnmute, { once: true });
-window.addEventListener('touchstart', tryUnmute, { once: true });
-window.addEventListener('click', tryUnmute, { once: true });
+window.addEventListener('mousemove', tryUnmute);
+window.addEventListener('touchstart', tryUnmute);
+window.addEventListener('click', tryUnmute);
 window.addEventListener('resize', resize);
 
 resize();
@@ -688,7 +688,7 @@ window.onYouTubeIframeAPIReady = function() {
     height: '0', width: '0',
     playerVars: { listType: 'playlist', list: 'PLclKxWEml0RE', autoplay: 1, mute: 1 },
     events: {
-      onReady: (e) => { e.target.playVideo(); updateTrackUI(); },
+      onReady: (e) => { e.target.playVideo(); setTimeout(tryUnmute, 500); updateTrackUI(); },
       onStateChange: (e) => {
         isPlaying = e.data === YT.PlayerState.PLAYING;
         if (charState === 'front') startIdle();
