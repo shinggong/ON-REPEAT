@@ -14,6 +14,7 @@
     overflow: hidden;
     cursor: url('cursor.png') 4 4, auto;
   }
+  * { cursor: url('cursor.png') 4 4, auto !important; }
   #dotCanvas {
     display: block;
     width: 100vw;
@@ -364,6 +365,8 @@ const PUPIL_LIMIT = 0.42;
 let EYE_DATA = null;
 // 눈동자 lerp 상태 (최대 2개 눈)
 const pupilCurrent = [{ox:0,oy:0},{ox:0,oy:0}];
+// shake 흰자 중심 lerp 상태
+const eyeCenterCurrent = [{cx:null,cy:null,rx:null,ry:null},{cx:null,cy:null,rx:null,ry:null}];
 let eyeRedrawTimer = null;
 let eyeStaticKey = null;
 let eyeStaticFrame = null;
@@ -401,7 +404,6 @@ fetch('eye_data.json').then(r=>r.json()).then(d=>{ EYE_DATA=d; });
 function drawEyes(key, frame) {
   if (!EYE_DATA || !EYE_DATA[key]) return;
   const isShakeAnim = key === 'shake';
-  if (isShakeAnim) { key = 'idle'; frame = 0; }
   const frameEyes = EYE_DATA[key][frame];
   if (!frameEyes) return;
 
@@ -411,30 +413,56 @@ function drawEyes(key, frame) {
   const mx = (mouse.x - rect.left) * scaleX;
   const my = (mouse.y - rect.top) * scaleY;
 
-  for (let eyeIdx = 0; eyeIdx < frameEyes.length; eyeIdx++) {
-    const [cx,cy,rx,ry] = frameEyes[eyeIdx];
-    // 헤드폰 귀마개 오탐지 제거: 세로가 가로의 2배 이상이면 스킵
-    if (ry / rx > 2) continue;
-    // 흰자 크기: idle 1.5x, 전환 애니 1.4x
-    const eyeScale = key === 'idle' ? 1.5 : 1.4;
+  // shake: 유효한 눈 후보 필터링 (ry/rx > 2 제거)
+  const validEyes = frameEyes.filter(([cx,cy,rx,ry]) => ry/rx <= 2);
+
+  const eyeCount = isShakeAnim ? 2 : frameEyes.length;
+
+  for (let eyeIdx = 0; eyeIdx < eyeCount; eyeIdx++) {
+    let cx, cy, rx, ry;
+
+    if (isShakeAnim) {
+      const ec = eyeCenterCurrent[eyeIdx];
+      // 이 눈 인덱스에 유효한 타겟이 있으면 lerp
+      const target = validEyes[eyeIdx];
+      if (target) {
+        // 초기화
+        if (ec.cx === null) { ec.cx = target[0]; ec.cy = target[1]; ec.rx = target[2]; ec.ry = target[3]; }
+        ec.cx += (target[0] - ec.cx) * 0.15;
+        ec.cy += (target[1] - ec.cy) * 0.15;
+        ec.rx += (target[2] - ec.rx) * 0.15;
+        ec.ry += (target[3] - ec.ry) * 0.15;
+      }
+      if (ec.cx === null) continue;
+      cx = ec.cx; cy = ec.cy; rx = ec.rx; ry = ec.ry;
+    } else {
+      if (eyeIdx >= frameEyes.length) continue;
+      const e = frameEyes[eyeIdx];
+      if (e[3] / e[2] > 2) continue;
+      [cx, cy, rx, ry] = e;
+    }
+
+    const eyeScale = (!isShakeAnim && key === 'idle') ? 1.5 : 1.4;
     idleCtx.beginPath();
     idleCtx.ellipse(cx, cy, rx * eyeScale, ry * eyeScale, 0, 0, Math.PI*2);
     idleCtx.fillStyle = '#ffffff';
     idleCtx.fill();
 
-    // 동공 목표 위치 계산
-    const dx = mx - cx, dy = my - cy;
-    const dist = Math.sqrt(dx*dx + dy*dy);
-    const pupilVis = (key === 'idle' && !isShakeAnim) ? 0.6 : 0.9;
-    const limitX = Math.max(0, rx - PUPIL_R * pupilVis);
-    const limitY = Math.max(0, ry - PUPIL_R * pupilVis);
-    const targetOx = dist > 0 ? Math.min(Math.abs(dx), limitX) * (dx < 0 ? -1 : 1) : 0;
-    const targetOy = dist > 0 ? Math.min(Math.abs(dy), limitY) * (dy < 0 ? -1 : 1) : 0;
-    // lerp: 현재 위치 → 목표 위치로 부드럽게
     const p = pupilCurrent[eyeIdx];
-    const lerpF = isShakeAnim ? 0.25 : 0.10;
-    p.ox += (targetOx - p.ox) * lerpF;
-    p.oy += (targetOy - p.oy) * lerpF;
+    if (isShakeAnim) {
+      // shake 중에는 마우스 무시, 동공은 얼굴 중심에 고정
+      p.ox += (0 - p.ox) * 0.15;
+      p.oy += (0 - p.oy) * 0.15;
+    } else {
+      const dx = mx - cx, dy = my - cy;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      const limitX = Math.max(0, rx - PUPIL_R * 0.6);
+      const limitY = Math.max(0, ry - PUPIL_R * 0.6);
+      const targetOx = dist > 0 ? Math.min(Math.abs(dx), limitX) * (dx < 0 ? -1 : 1) : 0;
+      const targetOy = dist > 0 ? Math.min(Math.abs(dy), limitY) * (dy < 0 ? -1 : 1) : 0;
+      p.ox += (targetOx - p.ox) * 0.10;
+      p.oy += (targetOy - p.oy) * 0.10;
+    }
     idleCtx.beginPath();
     idleCtx.arc(cx + p.ox, cy + p.oy, PUPIL_R, 0, Math.PI*2);
     idleCtx.fillStyle = '#111';
@@ -471,7 +499,7 @@ function playAnim(key, reverse, loop, onEnd) {
   let subFrame = 0;
 
   function tick(now) {
-    const elapsed = now - lastTime;
+    const elapsed = Math.min(now - lastTime, 100); // 탭 전환 등 큰 딜레이 방지
     lastTime = now;
 
     let speed = 1;
@@ -666,6 +694,9 @@ function triggerShake() {
   isTransitioning = false;
   transQueue = [];
   pendingZone = null;
+  // shake 흰자 lerp 초기화
+  eyeCenterCurrent[0] = {cx:null,cy:null,rx:null,ry:null};
+  eyeCenterCurrent[1] = {cx:null,cy:null,rx:null,ry:null};
   const prevState = charState;
   const prevKey = animKey;
   const prevFrame = animFrame;
@@ -762,32 +793,6 @@ function updateProgress() {
   }, 500);
 }
 
-// ---- 존 경계 디버그 오버레이 ----
-const overlay = document.createElement('div');
-overlay.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9999;font-family:monospace;';
-overlay.innerHTML = `
-  <div id="zl"  style="position:absolute;top:0;bottom:0;width:2px;background:rgba(255,100,100,0.7);"></div>
-  <div id="zr"  style="position:absolute;top:0;bottom:0;width:2px;background:rgba(100,100,255,0.7);"></div>
-  <div id="zmy" style="position:absolute;left:0;right:0;height:2px;background:rgba(255,180,0,0.7);"></div>
-  <div id="zlabel-l" style="position:absolute;top:12px;color:rgba(255,100,100,0.9);font-size:11px;transform:translateX(-50%);">lefttop</div>
-  <div id="zlabel-t" style="position:absolute;left:50%;transform:translateX(-50%);color:rgba(255,180,0,0.9);font-size:11px;">top</div>
-  <div id="zlabel-f" style="position:absolute;left:50%;transform:translateX(-50%);color:rgba(200,200,200,0.9);font-size:11px;">idle</div>
-  <div id="zlabel-r" style="position:absolute;top:12px;color:rgba(100,100,255,0.9);font-size:11px;transform:translateX(-50%);">righttop</div>
-`;
-document.body.appendChild(overlay);
-function updateOverlay() {
-  const rect = idleCanvas.getBoundingClientRect();
-  const midY = rect.top + rect.height * 0.5;
-  overlay.querySelector('#zl').style.left = (rect.left + rect.width * 0.30) + 'px';
-  overlay.querySelector('#zr').style.left = (rect.right - rect.width * 0.30) + 'px';
-  overlay.querySelector('#zmy').style.top = midY + 'px';
-  overlay.querySelector('#zlabel-l').style.left = (rect.left / 2) + 'px';
-  overlay.querySelector('#zlabel-r').style.left = ((rect.right + window.innerWidth) / 2) + 'px';
-  overlay.querySelector('#zlabel-t').style.top = (rect.top + 8) + 'px';
-  overlay.querySelector('#zlabel-f').style.top = (midY + 8) + 'px';
-}
-updateOverlay();
-window.addEventListener('resize', updateOverlay);
 </script>
 </body>
 </html>
