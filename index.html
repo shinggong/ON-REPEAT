@@ -394,11 +394,11 @@ function playAnim(key, reverse, loop, onEnd) {
 
     let speed = 1;
     if (!isIdle) {
-      // ease-out: 방향 상관없이 시작이 빠르고 끝이 느리게
+      // sine ease-out: 부드럽게 감속
       const progress = reverse
         ? (s.total - 1 - animFrame) / Math.max(s.total - 1, 1)
         : animFrame / Math.max(s.total - 1, 1);
-      speed = 2.5 - 1.0 * progress;
+      speed = 1.0 + 0.9 * Math.cos(progress * Math.PI / 2);
     }
 
     subFrame += (elapsed / (1000 / baseFps)) * speed;
