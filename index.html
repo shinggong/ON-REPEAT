@@ -39,7 +39,7 @@
 <!-- 커스텀 플레이어 UI -->
 <div id="player-ui" style="
   position: fixed;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
   left: 50%;
   transform: translateX(-50%);
   width: min(420px, 80vw);
@@ -270,7 +270,7 @@ idleCanvas.height = 960;
 
 const FRAME_SIZE = 960;
 const FPS_IDLE = 24;
-const FPS_TRANS = 60;
+const FPS_TRANS = 80;
 
 const SPRITES = {
   idle:              { src: 'idle.webp',              cols: 6, total: 27 },
@@ -296,6 +296,11 @@ Object.entries(SPRITES).forEach(([key, s]) => {
       ls.classList.add('hidden');
       setTimeout(() => ls.remove(), 600);
       startIdle();
+      // 로딩 완료 즉시 현재 마우스 위치로 전환
+      if (mouse.x > -9999) {
+        const zone = getZone(mouse.x, mouse.y);
+        if (zone !== 'front') { lastZone = zone; goTo(zone); }
+      }
     }
   };
   imgs[key] = img;
@@ -437,14 +442,14 @@ function drawEyes(key, frame) {
 
 function drawFrame(key, frame) {
   const s = SPRITES[key];
+  const img = imgs[key];
+  if (!img || !img.complete || !img.naturalWidth) return; // 미로드 시 빈 프레임 방지
   const col = frame % s.cols;
   const row = Math.floor(frame / s.cols);
 
   idleCtx.clearRect(0, 0, 960, 960);
-  // 1. 눈 먼저 그리기
   drawEyes(key, frame);
-  // 2. 캐릭터를 source-over로 위에 → 투명 구멍(eye hole)으로 눈이 보임
-  idleCtx.drawImage(imgs[key], col*FRAME_SIZE, row*FRAME_SIZE, FRAME_SIZE, FRAME_SIZE, 0, 0, 960, 960);
+  idleCtx.drawImage(img, col*FRAME_SIZE, row*FRAME_SIZE, FRAME_SIZE, FRAME_SIZE, 0, 0, 960, 960);
 }
 
 function playAnim(key, reverse, loop, onEnd) {
@@ -473,7 +478,7 @@ function playAnim(key, reverse, loop, onEnd) {
       const progress = reverse
         ? (s.total - 1 - animFrame) / Math.max(s.total - 1, 1)
         : animFrame / Math.max(s.total - 1, 1);
-      speed = 1.0 + 0.9 * Math.cos(progress * Math.PI / 2);
+      speed = 1.0 + 0.4 * Math.cos(progress * Math.PI / 2);
     }
 
     subFrame += (elapsed / (1000 / baseFps)) * speed;
