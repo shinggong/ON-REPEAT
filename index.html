@@ -529,6 +529,7 @@ function runQueue() {
       } else {
         // front 외 상태: 마지막 프레임 유지 + 눈동자 계속 업데이트
         startEyeRedraw(animKey, animFrame);
+        resetIdleTimer(); // transition 완료 후 새로 1초 카운트
       }
     }
     return;
@@ -572,7 +573,7 @@ let lastZone = 'front';
 let idleTimeout = null;
 
 function returnToFront() {
-  if (isShaking) return;
+  if (isShaking || isTransitioning) return; // 진행 중인 전환은 방해하지 않음
   lastZone = 'front';
   charState = 'front';
   isTransitioning = true;
@@ -584,7 +585,13 @@ function returnToFront() {
   playAnim('lefttop_leftdown', false, false, () => {
     playAnim('leftdown_front', false, false, () => {
       isTransitioning = false;
-      startIdle(true);
+      const next = pendingZone;
+      pendingZone = null;
+      if (next && next !== 'front') {
+        goTo(next); // 복귀 중 이동한 영역으로 즉시 전환
+      } else {
+        startIdle(true);
+      }
     });
   });
 }
