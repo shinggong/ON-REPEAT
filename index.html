@@ -400,7 +400,8 @@ fetch('eye_data.json').then(r=>r.json()).then(d=>{ EYE_DATA=d; });
 
 function drawEyes(key, frame) {
   if (!EYE_DATA || !EYE_DATA[key]) return;
-  if (key === 'shake') { key = 'idle'; frame = 0; } // shake 중 idle 눈 위치 고정
+  const isShakeAnim = key === 'shake';
+  if (isShakeAnim) { key = 'idle'; frame = 0; }
   const frameEyes = EYE_DATA[key][frame];
   if (!frameEyes) return;
 
@@ -424,15 +425,16 @@ function drawEyes(key, frame) {
     // 동공 목표 위치 계산
     const dx = mx - cx, dy = my - cy;
     const dist = Math.sqrt(dx*dx + dy*dy);
-    const pupilVis = key === 'idle' ? 0.6 : 0.9;
+    const pupilVis = (key === 'idle' && !isShakeAnim) ? 0.6 : 0.9;
     const limitX = Math.max(0, rx - PUPIL_R * pupilVis);
     const limitY = Math.max(0, ry - PUPIL_R * pupilVis);
     const targetOx = dist > 0 ? Math.min(Math.abs(dx), limitX) * (dx < 0 ? -1 : 1) : 0;
     const targetOy = dist > 0 ? Math.min(Math.abs(dy), limitY) * (dy < 0 ? -1 : 1) : 0;
     // lerp: 현재 위치 → 목표 위치로 부드럽게
     const p = pupilCurrent[eyeIdx];
-    p.ox += (targetOx - p.ox) * 0.10;
-    p.oy += (targetOy - p.oy) * 0.10;
+    const lerpF = isShakeAnim ? 0.25 : 0.10;
+    p.ox += (targetOx - p.ox) * lerpF;
+    p.oy += (targetOy - p.oy) * lerpF;
     idleCtx.beginPath();
     idleCtx.arc(cx + p.ox, cy + p.oy, PUPIL_R, 0, Math.PI*2);
     idleCtx.fillStyle = '#111';
