@@ -342,8 +342,8 @@ function drawEyes(key, frame) {
     const dx = mx - cx, dy = my - cy;
     const dist = Math.sqrt(dx*dx + dy*dy);
     // 가로/세로 이동량 분리: 눈이 좁아도 좌우로는 최대한 이동
-    const limitX = Math.max(0, rx - PUPIL_R * 0.5);
-    const limitY = Math.max(0, ry - PUPIL_R * 0.5);
+    const limitX = Math.max(0, rx - PUPIL_R * 0.8);
+    const limitY = Math.max(0, ry - PUPIL_R * 0.8);
     const ox = dist > 0 ? Math.min(Math.abs(dx), limitX) * (dx < 0 ? -1 : 1) : 0;
     const oy = dist > 0 ? Math.min(Math.abs(dy), limitY) * (dy < 0 ? -1 : 1) : 0;
     idleCtx.beginPath();
