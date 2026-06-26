@@ -466,12 +466,12 @@ function playAnim(key, reverse, loop, onEnd) {
           animFrame = reverse ? s.total - 1 : 0;
         } else {
           animFrame = reverse ? 0 : s.total - 1;
-          drawFrame(key, animFrame);
+          try { drawFrame(key, animFrame); } catch(e) {}
           if (onEnd) onEnd();
           return;
         }
       }
-      drawFrame(key, animFrame);
+      try { drawFrame(key, animFrame); } catch(e) {}
     }
 
     animTimer = requestAnimationFrame(tick);
@@ -615,30 +615,36 @@ function isFaceClick(x, y) {
   const ry = (y - rect.top) / rect.height;
   return rx > 0.2 && rx < 0.8 && ry > 0.1 && ry < 0.85;
 }
+function triggerShake() {
+  isShaking = true;
+  clearTimeout(idleTimeout);
+  if (animTimer) cancelAnimationFrame(animTimer);
+  stopEyeRedraw();
+  // 전환 상태 완전 초기화
+  isTransitioning = false;
+  transQueue = [];
+  pendingZone = null;
+  const prevState = charState;
+  const prevKey = animKey;
+  const prevFrame = animFrame;
+  playAnim('shake', false, false, () => {
+    isShaking = false;
+    charState = prevState;
+    if (prevState === 'front') startIdle();
+    else startEyeRedraw(prevKey, prevFrame);
+    resetIdleTimer();
+  });
+}
 idleCanvas.addEventListener('click', (e) => {
   if (isShaking) return;
   if (!isFaceClick(e.clientX, e.clientY)) return;
-  isShaking = true;
-  if (animTimer) cancelAnimationFrame(animTimer);
-  stopEyeRedraw();
-  playAnim('shake', false, false, () => {
-    isShaking = false;
-    if (charState === 'front') startIdle();
-    else startEyeRedraw(animKey, animFrame);
-  });
+  triggerShake();
 });
 idleCanvas.addEventListener('touchend', (e) => {
   if (isShaking) return;
   const touch = e.changedTouches[0];
   if (!isFaceClick(touch.clientX, touch.clientY)) return;
-  isShaking = true;
-  if (animTimer) cancelAnimationFrame(animTimer);
-  stopEyeRedraw();
-  playAnim('shake', false, false, () => {
-    isShaking = false;
-    if (charState === 'front') startIdle();
-    else startEyeRedraw(animKey, animFrame);
-  });
+  triggerShake();
 });
 
 window.addEventListener('resize', resize);
