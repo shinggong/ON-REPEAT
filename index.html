@@ -551,9 +551,28 @@ function getZone(x, y) {
 
 let lastZone = 'front';
 let idleTimeout = null;
+
+function returnToFront() {
+  if (isShaking) return;
+  lastZone = 'front';
+  charState = 'front';
+  isTransitioning = true;
+  transQueue = [];
+  pendingZone = null;
+  if (animTimer) cancelAnimationFrame(animTimer);
+  stopEyeRedraw();
+  // lefttop_leftdown → leftdown_front 순서로 front 복귀
+  playAnim('lefttop_leftdown', false, false, () => {
+    playAnim('leftdown_front', false, false, () => {
+      isTransitioning = false;
+      startIdle();
+    });
+  });
+}
+
 function resetIdleTimer() {
   clearTimeout(idleTimeout);
-  idleTimeout = setTimeout(() => { lastZone = 'front'; goTo('front'); }, 1000);
+  idleTimeout = setTimeout(returnToFront, 1000);
 }
 
 window.addEventListener('mousemove', (e) => {
