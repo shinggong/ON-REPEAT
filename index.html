@@ -30,8 +30,8 @@
   bottom: calc(0px - env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
-  width: 420px;
-  height: 420px;
+  width: 630px;
+  height: 630px;
   z-index: 20;
   pointer-events: none;
 "></canvas>
@@ -222,7 +222,7 @@ idleCanvas.height = 960;
 
 const FRAME_SIZE = 960;
 const FPS_IDLE = 24;
-const FPS_TRANS = 160;
+const FPS_TRANS = 240;
 
 const SPRITES = {
   idle:           { src: 'idle.webp',           cols: 6, total: 27 },
@@ -391,7 +391,7 @@ function playAnim(key, reverse, loop, onEnd) {
       const progress = reverse
         ? (s.total - 1 - animFrame) / Math.max(s.total - 1, 1)
         : animFrame / Math.max(s.total - 1, 1);
-      speed = 2.2 - 1.4 * progress;
+      speed = 3.0 - 1.5 * progress;
     }
 
     subFrame += (elapsed / (1000 / baseFps)) * speed;
