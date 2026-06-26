@@ -392,6 +392,7 @@ fetch('eye_data.json').then(r=>r.json()).then(d=>{ EYE_DATA=d; });
 
 function drawEyes(key, frame) {
   if (!EYE_DATA || !EYE_DATA[key]) return;
+  if (key === 'shake') return; // 빠른 반응 모션 - 눈 추적 스킵
   const frameEyes = EYE_DATA[key][frame];
   if (!frameEyes) return;
 
