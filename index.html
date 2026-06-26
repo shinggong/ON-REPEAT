@@ -21,9 +21,18 @@
     height: calc(100vh + env(safe-area-inset-bottom));
   }
 
+  #loading-screen {
+    position: fixed; inset: 0; background: #0C0B0B;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9000; transition: opacity 0.5s;
+  }
+  #loading-screen.hidden { opacity: 0; pointer-events: none; }
 </style>
 </head>
 <body>
+<div id="loading-screen">
+  <div style="color:#BD5A8C;font-family:-apple-system,sans-serif;font-size:14px;opacity:0.7;">loading…</div>
+</div>
 <canvas id="dotCanvas"></canvas>
 <div id="yt-hidden"></div>
 
@@ -280,7 +289,15 @@ let loadedCount = 0;
 Object.entries(SPRITES).forEach(([key, s]) => {
   const img = new Image();
   img.src = s.src;
-  img.onload = () => { loadedCount++; if (loadedCount === Object.keys(SPRITES).length) startIdle(); };
+  img.onload = () => {
+    loadedCount++;
+    if (loadedCount === Object.keys(SPRITES).length) {
+      const ls = document.getElementById('loading-screen');
+      ls.classList.add('hidden');
+      setTimeout(() => ls.remove(), 600);
+      startIdle();
+    }
+  };
   imgs[key] = img;
 });
 
@@ -484,11 +501,15 @@ function startIdle(skipInitialDraw) {
   if (isPlaying) {
     playAnim('idle', false, true, null);
   } else {
-    // 재생 중 아닐 때: idle 첫 프레임 정지
     if (animTimer) cancelAnimationFrame(animTimer);
     stopEyeRedraw();
-    if (!skipInitialDraw) drawFrame('idle', 0);
-    startEyeRedraw('idle', 0);
+    if (skipInitialDraw) {
+      // 현재 프레임 그대로 유지 → 프레임 점프 없음
+      startEyeRedraw(animKey, animFrame);
+    } else {
+      drawFrame('idle', 0);
+      startEyeRedraw('idle', 0);
+    }
   }
 }
 
@@ -648,17 +669,16 @@ idleCanvas.addEventListener('touchend', (e) => {
 });
 
 
-// 첫 인터랙션 시 음소거 해제
-let unmuteOnce = false;
-function tryUnmute() {
-  if (unmuteOnce || !ytPlayer) return;
-  unmuteOnce = true;
-  ytPlayer.unMute();
-  ytPlayer.setVolume(100);
+// 첫 인터랙션 시 재생 시작 (브라우저 자동재생 정책 우회)
+let autoPlayOnce = false;
+function tryAutoPlay() {
+  if (autoPlayOnce || !ytPlayer) return;
+  autoPlayOnce = true;
+  ytPlayer.playVideo();
 }
-window.addEventListener('mousemove', tryUnmute);
-window.addEventListener('touchstart', tryUnmute);
-window.addEventListener('click', tryUnmute);
+window.addEventListener('mousemove', tryAutoPlay);
+window.addEventListener('touchstart', tryAutoPlay);
+window.addEventListener('click', tryAutoPlay);
 window.addEventListener('resize', resize);
 
 resize();
@@ -686,9 +706,9 @@ function seekTo(e) {
 window.onYouTubeIframeAPIReady = function() {
   ytPlayer = new YT.Player('yt-hidden', {
     height: '0', width: '0',
-    playerVars: { listType: 'playlist', list: 'PLclKxWEml0RE', autoplay: 1, mute: 1 },
+    playerVars: { listType: 'playlist', list: 'PLclKxWEml0RE', autoplay: 0 },
     events: {
-      onReady: (e) => { e.target.playVideo(); setTimeout(tryUnmute, 500); updateTrackUI(); },
+      onReady: (e) => { updateTrackUI(); },
       onStateChange: (e) => {
         isPlaying = e.data === YT.PlayerState.PLAYING;
         if (charState === 'front') startIdle();
