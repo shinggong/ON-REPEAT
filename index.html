@@ -30,8 +30,8 @@
   bottom: calc(0px - env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
-  width: 630px;
-  height: 630px;
+  width: 546px;
+  height: 546px;
   z-index: 20;
   pointer-events: none;
 "></canvas>
@@ -341,13 +341,13 @@ function drawEyes(key, frame) {
     // 동공: 항상 마우스 방향, 눈 안에서 최대한 이동
     const dx = mx - cx, dy = my - cy;
     const dist = Math.sqrt(dx*dx + dy*dy);
-    const maxMove = Math.min(rx, ry) * 0.7;
-    // dist가 0이면 중앙, 아니면 항상 방향 유지하고 maxMove까지 이동
-    const move = dist > 0 ? Math.min(dist, maxMove) : 0;
-    const ux = dist > 0 ? dx/dist : 0;
-    const uy = dist > 0 ? dy/dist : 0;
+    // 가로/세로 이동량 분리: 눈이 좁아도 좌우로는 최대한 이동
+    const limitX = rx * 0.72;
+    const limitY = ry * 0.72;
+    const ox = dist > 0 ? Math.min(Math.abs(dx), limitX) * (dx < 0 ? -1 : 1) : 0;
+    const oy = dist > 0 ? Math.min(Math.abs(dy), limitY) * (dy < 0 ? -1 : 1) : 0;
     idleCtx.beginPath();
-    idleCtx.arc(cx + ux*move, cy + uy*move, PUPIL_R, 0, Math.PI*2);
+    idleCtx.arc(cx + ox, cy + oy, PUPIL_R, 0, Math.PI*2);
     idleCtx.fillStyle = '#111';
     idleCtx.fill();
   }
