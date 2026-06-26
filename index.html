@@ -222,7 +222,7 @@ idleCanvas.height = 960;
 
 const FRAME_SIZE = 960;
 const FPS_IDLE = 24;
-const FPS_TRANS = 108; // 기존 72 * 1.5
+const FPS_TRANS = 160;
 
 const SPRITES = {
   idle:           { src: 'idle.webp',           cols: 6, total: 27 },
@@ -381,9 +381,11 @@ function playAnim(key, reverse, loop, onEnd) {
 
     let speed = 1;
     if (!isIdle) {
-      // ease-out: 처음 2x 빠르고 끝 0.5x 느리게
-      const progress = animFrame / Math.max(s.total - 1, 1);
-      speed = 2.0 - 1.5 * progress;
+      // ease-out: 방향 상관없이 시작이 빠르고 끝이 느리게
+      const progress = reverse
+        ? (s.total - 1 - animFrame) / Math.max(s.total - 1, 1)
+        : animFrame / Math.max(s.total - 1, 1);
+      speed = 2.2 - 1.4 * progress;
     }
 
     subFrame += (elapsed / (1000 / baseFps)) * speed;
@@ -448,7 +450,11 @@ function goTo(target) {
   if (target === charState) return;
   if (isTransitioning) { pendingZone = target; return; }
   const chain = TRANSITIONS[charState]?.[target];
-  if (!chain) return;
+  if (!chain) {
+    // 전환 경로 없으면 현재 상태 유지 (캐릭터 사라짐 방지)
+    startEyeRedraw(animKey, animFrame);
+    return;
+  }
   transQueue = [...chain];
   runQueue();
 }
