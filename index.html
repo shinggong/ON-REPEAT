@@ -222,7 +222,7 @@ idleCanvas.height = 960;
 
 const FRAME_SIZE = 960;
 const FPS_IDLE = 24;
-const FPS_TRANS = 240;
+const FPS_TRANS = 60;
 
 const SPRITES = {
   idle:           { src: 'idle.webp',           cols: 6, total: 27 },
@@ -391,7 +391,7 @@ function playAnim(key, reverse, loop, onEnd) {
       const progress = reverse
         ? (s.total - 1 - animFrame) / Math.max(s.total - 1, 1)
         : animFrame / Math.max(s.total - 1, 1);
-      speed = 3.0 - 1.5 * progress;
+      speed = 2.5 - 1.0 * progress;
     }
 
     subFrame += (elapsed / (1000 / baseFps)) * speed;
