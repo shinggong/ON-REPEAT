@@ -342,8 +342,8 @@ function drawEyes(key, frame) {
     const dx = mx - cx, dy = my - cy;
     const dist = Math.sqrt(dx*dx + dy*dy);
     // 가로/세로 이동량 분리: 눈이 좁아도 좌우로는 최대한 이동
-    const limitX = rx * 0.72;
-    const limitY = ry * 0.72;
+    const limitX = Math.max(0, rx - PUPIL_R * 0.5);
+    const limitY = Math.max(0, ry - PUPIL_R * 0.5);
     const ox = dist > 0 ? Math.min(Math.abs(dx), limitX) * (dx < 0 ? -1 : 1) : 0;
     const oy = dist > 0 ? Math.min(Math.abs(dy), limitY) * (dy < 0 ? -1 : 1) : 0;
     idleCtx.beginPath();
@@ -467,8 +467,8 @@ function goTo(target) {
 
 function getZone(x) {
   const w = window.innerWidth;
-  if (x < w * 0.30) return 'lefttop';
-  if (x > w * 0.70) return 'righttop';
+  if (x < w * 0.40) return 'lefttop';
+  if (x > w * 0.60) return 'righttop';
   return 'front';
 }
 
@@ -531,8 +531,8 @@ overlay.innerHTML = `
 document.body.appendChild(overlay);
 function updateOverlay() {
   const w = window.innerWidth;
-  const lx = Math.round(w * 0.30);
-  const rx = Math.round(w * 0.70);
+  const lx = Math.round(w * 0.40);
+  const rx = Math.round(w * 0.60);
   overlay.querySelector('#zl').style.left = lx + 'px';
   overlay.querySelector('#zr').style.left = rx + 'px';
   overlay.querySelector('#zlabel-l').style.left = (lx / 2) + 'px';
