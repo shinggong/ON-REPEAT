@@ -41,7 +41,7 @@
 <!-- 커스텀 플레이어 UI -->
 <div id="player-ui" style="
   position: fixed;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 6px);
   left: 50%;
   transform: translateX(-50%);
   width: min(420px, 80vw);
@@ -429,10 +429,10 @@ function drawEyes(key, frame) {
       if (target) {
         // 초기화
         if (ec.cx === null) { ec.cx = target[0]; ec.cy = target[1]; ec.rx = target[2]; ec.ry = target[3]; }
-        ec.cx += (target[0] - ec.cx) * 0.45;
-        ec.cy += (target[1] - ec.cy) * 0.45;
-        ec.rx += (target[2] - ec.rx) * 0.45;
-        ec.ry += (target[3] - ec.ry) * 0.45;
+        ec.cx = target[0];
+        ec.cy = target[1];
+        ec.rx = target[2];
+        ec.ry = target[3];
       }
       if (ec.cx === null) continue;
       cx = ec.cx; cy = ec.cy; rx = ec.rx; ry = ec.ry;
@@ -616,27 +616,33 @@ let lastZone = 'front';
 let idleTimeout = null;
 
 function returnToFront() {
-  if (isShaking || isTransitioning) return; // 진행 중인 전환은 방해하지 않음
-  lastZone = 'front';
-  charState = 'front';
+  if (isShaking || isTransitioning) return;
+  if (charState === 'front') { startIdle(true); return; }
+  const path = TRANSITIONS[charState]?.['front'];
+  if (!path || path.length === 0) { charState = 'front'; lastZone = 'front'; startIdle(true); return; }
   isTransitioning = true;
-  transQueue = [];
+  transQueue = [...path];
   pendingZone = null;
   if (animTimer) cancelAnimationFrame(animTimer);
   stopEyeRedraw();
-  // lefttop_leftdown → leftdown_front 순서로 front 복귀
-  playAnim('lefttop_leftdown', false, false, () => {
-    playAnim('leftdown_front', false, false, () => {
+  function playNext() {
+    if (transQueue.length === 0) {
       isTransitioning = false;
+      charState = 'front';
+      lastZone = 'front';
       const next = pendingZone;
       pendingZone = null;
-      if (next && next !== 'front') {
-        goTo(next); // 복귀 중 이동한 영역으로 즉시 전환
-      } else {
-        startIdle(true);
-      }
+      if (next && next !== 'front') goTo(next);
+      else startIdle(true);
+      return;
+    }
+    const { key, rev } = transQueue.shift();
+    playAnim(key, rev, false, () => {
+      charState = STATE_ENDS[key][rev ? 'rev' : 'fwd'];
+      playNext();
     });
-  });
+  }
+  playNext();
 }
 
 function resetIdleTimer() {
