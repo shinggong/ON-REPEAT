@@ -261,7 +261,7 @@ const TRANSITIONS = {
   lefttop: {
     front:    [{ key: 'front_lefttop', rev: true }],
     top:      [{ key: 'lefttop_top', rev: false }],
-    righttop: [{ key: 'front_lefttop', rev: true }, { key: 'righttop_front', rev: true }],
+    righttop: [{ key: 'lefttop_top', rev: false }, { key: 'top_righttop', rev: false }],
   },
   top: {
     righttop: [{ key: 'top_righttop', rev: false }],
@@ -271,7 +271,7 @@ const TRANSITIONS = {
   righttop: {
     front:    [{ key: 'righttop_front', rev: false }],
     top:      [{ key: 'top_righttop', rev: true }],
-    lefttop:  [{ key: 'righttop_front', rev: false }, { key: 'front_lefttop', rev: false }],
+    lefttop:  [{ key: 'top_righttop', rev: true }, { key: 'lefttop_top', rev: true }],
   },
 };
 
@@ -325,9 +325,10 @@ function drawEyes(key, frame) {
   for (const [cx,cy,rx,ry] of frameEyes) {
     // 헤드폰 귀마개 오탐지 제거: 세로가 가로의 2배 이상이면 스킵
     if (ry / rx > 2) continue;
-    // 흰자 (살짝 여유롭게)
+    // 흰자 (idle은 더 크게)
+    const eyeScale = key === 'idle' ? 1.5 : 1.2;
     idleCtx.beginPath();
-    idleCtx.ellipse(cx, cy, rx * 1.2, ry * 1.2, 0, 0, Math.PI*2);
+    idleCtx.ellipse(cx, cy, rx * eyeScale, ry * eyeScale, 0, 0, Math.PI*2);
     idleCtx.fillStyle = '#ffffff';
     idleCtx.fill();
 
