@@ -480,14 +480,14 @@ function playAnim(key, reverse, loop, onEnd) {
   animTimer = requestAnimationFrame(tick);
 }
 
-function startIdle() {
+function startIdle(skipInitialDraw) {
   if (isPlaying) {
     playAnim('idle', false, true, null);
   } else {
     // 재생 중 아닐 때: idle 첫 프레임 정지
     if (animTimer) cancelAnimationFrame(animTimer);
     stopEyeRedraw();
-    drawFrame('idle', 0);
+    if (!skipInitialDraw) drawFrame('idle', 0);
     startEyeRedraw('idle', 0);
   }
 }
@@ -563,7 +563,7 @@ function returnToFront() {
   playAnim('lefttop_leftdown', false, false, () => {
     playAnim('leftdown_front', false, false, () => {
       isTransitioning = false;
-      startIdle();
+      startIdle(true);
     });
   });
 }
