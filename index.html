@@ -36,6 +36,7 @@
   <div style="color:#BD5A8C;font-family:-apple-system,sans-serif;font-size:14px;opacity:0.7;">loading…</div>
 </div>
 <canvas id="dotCanvas"></canvas>
+<div id="bop-container" style="position:fixed;inset:0;z-index:10;pointer-events:none;overflow:hidden;"></div>
 <div id="yt-hidden"></div>
 
 <!-- 커스텀 플레이어 UI -->
@@ -799,6 +800,90 @@ function updateProgress() {
     document.getElementById('track-time').textContent = `${fmt(cur)} / ${fmt(dur)}`;
   }, 500);
 }
+
+// ---- BOP LETTERS PHYSICS ----
+(function() {
+  const TYPES    = ['b','o','p','b','o','p'];
+  const X_FRACS  = [-0.03, 0.14, 0.32, 0.52, 0.68, 0.85];
+  const TGT_YFRS = [0.04,  0.00, 0.05, 0.02, 0.06, 0.01];
+  const GRAVITY  = 1000;  // px/s²
+  const SPRING   = 280;
+  const DAMP     = 14;
+
+  const container = document.getElementById('bop-container');
+  const letters = TYPES.map((type, i) => {
+    const el = document.createElement('div');
+    el.style.cssText = 'position:absolute;top:0;left:0;pointer-events:auto;touch-action:none;will-change:transform;';
+    el.innerHTML = `<img src="${type}.svg" draggable="false" style="height:48vh;width:auto;display:block;pointer-events:none;">`;
+    container.appendChild(el);
+    return {
+      el, xFrac: X_FRACS[i], tgtFrac: TGT_YFRS[i],
+      y: window.innerHeight + 80, vy: 0,
+      dragging: false, dragStartY: 0, dragBaseY: 0, lastDragY: 0, lastDragT: 0,
+    };
+  });
+
+  let lastT = performance.now();
+  function tick(now) {
+    const dt = Math.min((now - lastT) / 1000, 0.05);
+    lastT = now;
+    const H = window.innerHeight;
+    const W = window.innerWidth;
+    for (const l of letters) {
+      if (!l.dragging) {
+        if (isPlaying) {
+          const tgt = l.tgtFrac * H;
+          l.vy += (-SPRING * (l.y - tgt) - DAMP * l.vy) * dt;
+        } else {
+          l.vy = (l.vy + GRAVITY * dt) * (1 - 1.5 * dt);
+        }
+        l.y += l.vy * dt;
+        if (l.y > H + 120) { l.y = H + 120; l.vy = 0; }
+        if (l.y < -400)    { l.y = -400;    l.vy = 0; }
+      }
+      l.el.style.transform = `translate(${(l.xFrac * W)|0}px,${l.y|0}px)`;
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  // drag - mouse
+  letters.forEach(l => {
+    l.el.addEventListener('mousedown', e => {
+      l.dragging = true; l.dragStartY = e.clientY; l.dragBaseY = l.y;
+      l.lastDragY = l.y; l.lastDragT = performance.now(); l.vy = 0;
+      e.stopPropagation();
+    });
+    l.el.addEventListener('touchstart', e => {
+      l.dragging = true; l.dragStartY = e.touches[0].clientY; l.dragBaseY = l.y;
+      l.lastDragY = l.y; l.lastDragT = performance.now(); l.vy = 0;
+      e.stopPropagation();
+    }, { passive: true });
+  });
+
+  window.addEventListener('mousemove', e => {
+    for (const l of letters) {
+      if (!l.dragging) continue;
+      const now2 = performance.now(), newY = l.dragBaseY + (e.clientY - l.dragStartY);
+      const ddt = (now2 - l.lastDragT) / 1000;
+      if (ddt > 0) l.vy = (newY - l.lastDragY) / ddt;
+      l.lastDragY = newY; l.lastDragT = now2; l.y = newY;
+    }
+  });
+  window.addEventListener('touchmove', e => {
+    for (const l of letters) {
+      if (!l.dragging) continue;
+      const now2 = performance.now(), newY = l.dragBaseY + (e.touches[0].clientY - l.dragStartY);
+      const ddt = (now2 - l.lastDragT) / 1000;
+      if (ddt > 0) l.vy = (newY - l.lastDragY) / ddt;
+      l.lastDragY = newY; l.lastDragT = now2; l.y = newY;
+    }
+  }, { passive: true });
+
+  const endDrag = () => letters.forEach(l => { l.dragging = false; });
+  window.addEventListener('mouseup', endDrag);
+  window.addEventListener('touchend', endDrag);
+})();
 
 </script>
 </body>
