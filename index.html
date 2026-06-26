@@ -803,16 +803,16 @@ function updateProgress() {
 
 // ---- BOP LETTERS PHYSICS ----
 (function() {
-  const TYPES    = ['b','o','p','b','o','p'];
-  const X_FRACS  = [-0.03, 0.14, 0.32, 0.52, 0.68, 0.85];
-  const TGT_YFRS = [0.04,  0.00, 0.05, 0.02, 0.06, 0.01];
-  const PHASES   = [0, 1.2, 2.4, 0.6, 1.8, 3.0]; // 떠있을때 bobbing 위상
-  const ASPECT   = { b: 211/272, o: 190/187, p: 211/261 };
-  const LH_FRAC  = 0.38; // 38vh
-  const GRAVITY  = 1000;
-  const SPRING   = 280;
-  const DAMP     = 14;
-  const PLAYER_H = 120; // player UI 높이 + 여백
+  const TYPES   = ['b','o','p','b','o','p'];
+  const X_FRACS = [-0.03, 0.14, 0.32, 0.52, 0.68, 0.85];
+  // 글자별 float y 오프셋 (topImage bottom 기준, px)
+  const Y_OFFS  = [10, 0, 15, 5, 20, 8];
+  const PHASES  = [0, 1.2, 2.4, 0.6, 1.8, 3.0];
+  const LH_FRAC = 0.48; // 48vh 원본 사이즈
+  const SPRING  = 280;
+  const DAMP    = 14;
+  const GRAVITY = 1000;
+  const PLAYER_H = 120;
 
   const container = document.getElementById('bop-container');
   const letters = TYPES.map((type, i) => {
@@ -820,9 +820,11 @@ function updateProgress() {
     el.style.cssText = 'position:absolute;top:0;left:0;pointer-events:auto;touch-action:none;will-change:transform;';
     el.innerHTML = `<img src="${type}.svg" draggable="false" style="height:${LH_FRAC*100}vh;width:auto;display:block;pointer-events:none;">`;
     container.appendChild(el);
+    // 초기 위치: topImage 아래쪽에서 시작
+    const startY = window.innerHeight * 0.3;
     return {
-      el, type, xFrac: X_FRACS[i], tgtFrac: TGT_YFRS[i], phase: PHASES[i],
-      y: window.innerHeight + 80, vy: 0, settled: false,
+      el, type, xFrac: X_FRACS[i], yOff: Y_OFFS[i], phase: PHASES[i],
+      y: startY, vy: 0,
       dragging: false, dragStartY: 0, dragBaseY: 0, lastDragY: 0, lastDragT: 0,
     };
   });
@@ -836,47 +838,32 @@ function updateProgress() {
     const lh = LH_FRAC * H;
     const t = now / 1000;
 
-    // 각 글자의 x 범위 계산 (스태킹용)
-    const xRanges = letters.map(l => {
-      const lw = lh * ASPECT[l.type];
-      const lx = l.xFrac * W;
-      return { l1: lx, r1: lx + lw };
-    });
+    // topImage bottom 위치
+    const topImgBottom = topImageEl ? topImageEl.getBoundingClientRect().bottom : 80;
+    const floatBaseY = topImgBottom;
 
-    for (let i = 0; i < letters.length; i++) {
-      const l = letters[i];
+    for (const l of letters) {
       if (!l.dragging) {
         if (isPlaying) {
-          l.settled = false;
-          const tgt = l.tgtFrac * H;
+          // topImage 바로 아래 위치로 spring
+          const tgt = floatBaseY + l.yOff;
           l.vy += (-SPRING * (l.y - tgt) - DAMP * l.vy) * dt;
           l.y += l.vy * dt;
-          if (l.y < -400) { l.y = -400; l.vy = 0; }
         } else {
-          // 중력
-          l.vy = (l.vy + GRAVITY * dt) * (1 - 1.5 * dt);
-          l.y += l.vy * dt;
-
-          // 바닥 및 스태킹 충돌
-          let floor = H - PLAYER_H;
-          // 다른 정착된 글자 위에 쌓이기
-          for (let j = 0; j < letters.length; j++) {
-            if (i === j || !letters[j].settled) continue;
-            const { l1, r1 } = xRanges[i];
-            const { l1: ol, r1: or1 } = xRanges[j];
-            const overlap = Math.min(r1, or1) - Math.max(l1, ol);
-            if (overlap > 20) floor = Math.min(floor, letters[j].y);
-          }
-          if (l.y + lh >= floor) {
-            l.y = floor - lh;
-            l.vy = 0;
-            l.settled = true;
+          if (l.type === 'b') {
+            // b: 중력으로 아래 낙하
+            l.vy = (l.vy + GRAVITY * dt) * (1 - 1.5 * dt);
+            l.y += l.vy * dt;
+            const floor = H - PLAYER_H - lh;
+            if (l.y >= floor) { l.y = floor; l.vy = 0; }
+          } else {
+            // o, p: 위로 올라감
+            l.vy = (l.vy - 700 * dt) * (1 - 0.8 * dt);
+            l.y += l.vy * dt;
+            if (l.y < -lh - 50) { l.y = -lh - 50; l.vy = 0; }
           }
         }
-      } else {
-        l.settled = false;
       }
-      // 떠있을때 bobbing 효과
       const bob = isPlaying && !l.dragging ? Math.sin(t * 1.8 + l.phase) * 7 : 0;
       l.el.style.transform = `translate(${(l.xFrac * W)|0}px,${(l.y + bob)|0}px)`;
     }
