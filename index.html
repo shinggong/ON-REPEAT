@@ -456,9 +456,9 @@ function drawEyes(key, frame) {
     } else {
       const dx = mx - cx, dy = my - cy;
       const dist = Math.sqrt(dx*dx + dy*dy);
-      // 동공이 흰자 안에 80% 이상 보이도록 제한
-      const limitX = Math.max(0, sRx - PUPIL_R * 0.8);
-      const limitY = Math.max(0, sRy - PUPIL_R * 0.8);
+      // 동공이 실제 눈구멍(rx/ry) 안에서 움직이도록 제한
+      const limitX = Math.max(0, rx - PUPIL_R);
+      const limitY = Math.max(0, ry - PUPIL_R);
       const targetOx = dist > 0 ? Math.min(Math.abs(dx), limitX) * (dx < 0 ? -1 : 1) : 0;
       const targetOy = dist > 0 ? Math.min(Math.abs(dy), limitY) * (dy < 0 ? -1 : 1) : 0;
       p.ox += (targetOx - p.ox) * 0.10;
@@ -805,19 +805,23 @@ function updateProgress() {
   const TYPES    = ['b','o','p','b','o','p'];
   const X_FRACS  = [-0.03, 0.14, 0.32, 0.52, 0.68, 0.85];
   const TGT_YFRS = [0.04,  0.00, 0.05, 0.02, 0.06, 0.01];
-  const GRAVITY  = 1000;  // px/s²
+  const PHASES   = [0, 1.2, 2.4, 0.6, 1.8, 3.0]; // 떠있을때 bobbing 위상
+  const ASPECT   = { b: 211/272, o: 190/187, p: 211/261 };
+  const LH_FRAC  = 0.38; // 38vh
+  const GRAVITY  = 1000;
   const SPRING   = 280;
   const DAMP     = 14;
+  const PLAYER_H = 120; // player UI 높이 + 여백
 
   const container = document.getElementById('bop-container');
   const letters = TYPES.map((type, i) => {
     const el = document.createElement('div');
     el.style.cssText = 'position:absolute;top:0;left:0;pointer-events:auto;touch-action:none;will-change:transform;';
-    el.innerHTML = `<img src="${type}.svg" draggable="false" style="height:48vh;width:auto;display:block;pointer-events:none;">`;
+    el.innerHTML = `<img src="${type}.svg" draggable="false" style="height:${LH_FRAC*100}vh;width:auto;display:block;pointer-events:none;">`;
     container.appendChild(el);
     return {
-      el, xFrac: X_FRACS[i], tgtFrac: TGT_YFRS[i],
-      y: window.innerHeight + 80, vy: 0,
+      el, type, xFrac: X_FRACS[i], tgtFrac: TGT_YFRS[i], phase: PHASES[i],
+      y: window.innerHeight + 80, vy: 0, settled: false,
       dragging: false, dragStartY: 0, dragBaseY: 0, lastDragY: 0, lastDragT: 0,
     };
   });
@@ -828,19 +832,52 @@ function updateProgress() {
     lastT = now;
     const H = window.innerHeight;
     const W = window.innerWidth;
-    for (const l of letters) {
+    const lh = LH_FRAC * H;
+    const t = now / 1000;
+
+    // 각 글자의 x 범위 계산 (스태킹용)
+    const xRanges = letters.map(l => {
+      const lw = lh * ASPECT[l.type];
+      const lx = l.xFrac * W;
+      return { l1: lx, r1: lx + lw };
+    });
+
+    for (let i = 0; i < letters.length; i++) {
+      const l = letters[i];
       if (!l.dragging) {
         if (isPlaying) {
+          l.settled = false;
           const tgt = l.tgtFrac * H;
           l.vy += (-SPRING * (l.y - tgt) - DAMP * l.vy) * dt;
+          l.y += l.vy * dt;
+          if (l.y < -400) { l.y = -400; l.vy = 0; }
         } else {
+          // 중력
           l.vy = (l.vy + GRAVITY * dt) * (1 - 1.5 * dt);
+          l.y += l.vy * dt;
+
+          // 바닥 및 스태킹 충돌
+          let floor = H - PLAYER_H;
+          // 다른 정착된 글자 위에 쌓이기
+          for (let j = 0; j < letters.length; j++) {
+            if (i === j || !letters[j].settled) continue;
+            const { l1, r1 } = xRanges[i];
+            const { l1: ol, r1: or1 } = xRanges[j];
+            const overlap = Math.min(r1, or1) - Math.max(l1, ol);
+            if (overlap > 20) floor = Math.min(floor, letters[j].y);
+          }
+          if (l.y + lh >= floor) {
+            l.y = floor - lh;
+            l.vy = 0;
+            l.settled = true;
+          }
         }
-        l.y += l.vy * dt;
-        if (l.y > H + 120) { l.y = H + 120; l.vy = 0; }
-        if (l.y < -400)    { l.y = -400;    l.vy = 0; }
+      } else {
+        l.settled = false;
       }
-      l.el.style.transform = `translate(${(l.xFrac * W)|0}px,${l.y|0}px)`;
+      // 떠있을때 bobbing 효과
+      const bob = isPlaying && !l.dragging ? Math.sin(t * 1.8 + l.phase) * 7 : 0;
+      l.el.style.transform = `translate(${(l.xFrac * W)|0}px,${(l.y + bob)|0}px)`;
     }
     requestAnimationFrame(tick);
   }
