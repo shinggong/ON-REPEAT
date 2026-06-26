@@ -282,12 +282,54 @@ const STATE_ENDS = {
   righttop_front: { fwd: 'front',   rev: 'righttop' },
 };
 
+// 눈 위치 (960x960 캔버스 기준) - idle 기준
+const EYES = [
+  { cx: 322, cy: 380, rx: 72, ry: 42 },  // 왼쪽 눈
+  { cx: 528, cy: 380, rx: 78, ry: 42 },  // 오른쪽 눈
+];
+const PUPIL_R = 28;
+const PUPIL_LIMIT = 0.45; // 눈 반경 대비 동공 이동 범위
+
+function drawEyes() {
+  const rect = idleCanvas.getBoundingClientRect();
+  const scaleX = 960 / rect.width;
+  const scaleY = 960 / rect.height;
+  const mx = (mouse.x - rect.left) * scaleX;
+  const my = (mouse.y - rect.top) * scaleY;
+
+  for (const eye of EYES) {
+    // 흰자 채우기
+    idleCtx.save();
+    idleCtx.beginPath();
+    idleCtx.ellipse(eye.cx, eye.cy, eye.rx, eye.ry, 0, 0, Math.PI * 2);
+    idleCtx.fillStyle = '#ffffff';
+    idleCtx.fill();
+    idleCtx.restore();
+
+    // 동공 방향 계산
+    const dx = mx - eye.cx;
+    const dy = my - eye.cy;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const maxMove = Math.min(eye.rx, eye.ry) * PUPIL_LIMIT;
+    const scale = dist > 0 ? Math.min(1, maxMove / dist) : 0;
+    const px = eye.cx + dx * scale;
+    const py = eye.cy + dy * scale;
+
+    // 동공 그리기
+    idleCtx.beginPath();
+    idleCtx.arc(px, py, PUPIL_R, 0, Math.PI * 2);
+    idleCtx.fillStyle = '#111111';
+    idleCtx.fill();
+  }
+}
+
 function drawFrame(key, frame) {
   const s = SPRITES[key];
   const col = frame % s.cols;
   const row = Math.floor(frame / s.cols);
   idleCtx.clearRect(0, 0, 960, 960);
   idleCtx.drawImage(imgs[key], col * FRAME_SIZE, row * FRAME_SIZE, FRAME_SIZE, FRAME_SIZE, 0, 0, 960, 960);
+  if (key === 'idle') drawEyes();
 }
 
 function playAnim(key, reverse, loop, onEnd) {
