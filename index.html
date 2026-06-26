@@ -467,8 +467,10 @@ function goTo(target) {
 
 function getZone(x) {
   const w = window.innerWidth;
-  if (x < w * 0.40) return 'lefttop';
-  if (x > w * 0.60) return 'righttop';
+  if (x < w * 0.22) return 'lefttop';
+  if (x < w * 0.40) return 'top';
+  if (x > w * 0.78) return 'righttop';
+  if (x > w * 0.60) return 'top';
   return 'front';
 }
 
@@ -476,7 +478,7 @@ let lastZone = 'front';
 let idleTimeout = null;
 function resetIdleTimer() {
   clearTimeout(idleTimeout);
-  idleTimeout = setTimeout(() => { lastZone = 'front'; goTo('front'); }, 2000);
+  idleTimeout = setTimeout(() => { lastZone = 'front'; goTo('front'); }, 1000);
 }
 
 window.addEventListener('mousemove', (e) => {
@@ -522,22 +524,30 @@ animate();
 const overlay = document.createElement('div');
 overlay.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9999;font-family:monospace;';
 overlay.innerHTML = `
-  <div id="zl" style="position:absolute;top:0;bottom:0;width:2px;background:rgba(255,100,100,0.7);"></div>
-  <div id="zr" style="position:absolute;top:0;bottom:0;width:2px;background:rgba(100,100,255,0.7);"></div>
+  <div id="zl1" style="position:absolute;top:0;bottom:0;width:2px;background:rgba(255,100,100,0.7);"></div>
+  <div id="zl2" style="position:absolute;top:0;bottom:0;width:2px;background:rgba(255,180,0,0.7);"></div>
+  <div id="zr1" style="position:absolute;top:0;bottom:0;width:2px;background:rgba(255,180,0,0.7);"></div>
+  <div id="zr2" style="position:absolute;top:0;bottom:0;width:2px;background:rgba(100,100,255,0.7);"></div>
   <div id="zlabel-l" style="position:absolute;top:12px;color:rgba(255,100,100,0.9);font-size:11px;transform:translateX(-50%);">lefttop</div>
+  <div id="zlabel-tl" style="position:absolute;top:12px;color:rgba(255,180,0,0.9);font-size:11px;transform:translateX(-50%);">top</div>
   <div id="zlabel-i" style="position:absolute;top:12px;color:rgba(200,200,200,0.9);font-size:11px;transform:translateX(-50%);">idle</div>
+  <div id="zlabel-tr" style="position:absolute;top:12px;color:rgba(255,180,0,0.9);font-size:11px;transform:translateX(-50%);">top</div>
   <div id="zlabel-r" style="position:absolute;top:12px;color:rgba(100,100,255,0.9);font-size:11px;transform:translateX(-50%);">righttop</div>
 `;
 document.body.appendChild(overlay);
 function updateOverlay() {
   const w = window.innerWidth;
-  const lx = Math.round(w * 0.40);
-  const rx = Math.round(w * 0.60);
-  overlay.querySelector('#zl').style.left = lx + 'px';
-  overlay.querySelector('#zr').style.left = rx + 'px';
-  overlay.querySelector('#zlabel-l').style.left = (lx / 2) + 'px';
-  overlay.querySelector('#zlabel-i').style.left = ((lx + rx) / 2) + 'px';
-  overlay.querySelector('#zlabel-r').style.left = ((rx + w) / 2) + 'px';
+  const l1 = Math.round(w * 0.22), l2 = Math.round(w * 0.40);
+  const r1 = Math.round(w * 0.60), r2 = Math.round(w * 0.78);
+  overlay.querySelector('#zl1').style.left = l1 + 'px';
+  overlay.querySelector('#zl2').style.left = l2 + 'px';
+  overlay.querySelector('#zr1').style.left = r1 + 'px';
+  overlay.querySelector('#zr2').style.left = r2 + 'px';
+  overlay.querySelector('#zlabel-l').style.left = (l1 / 2) + 'px';
+  overlay.querySelector('#zlabel-tl').style.left = ((l1 + l2) / 2) + 'px';
+  overlay.querySelector('#zlabel-i').style.left = ((l2 + r1) / 2) + 'px';
+  overlay.querySelector('#zlabel-tr').style.left = ((r1 + r2) / 2) + 'px';
+  overlay.querySelector('#zlabel-r').style.left = ((r2 + w) / 2) + 'px';
 }
 updateOverlay();
 window.addEventListener('resize', updateOverlay);
