@@ -815,20 +815,21 @@ function updateProgress() {
   const PLAYER_H = 120;
 
   const container = document.getElementById('bop-container');
+  // 초기 y: topImage bottom 위치 (없으면 화면 30%)
+  const initY = (topImageEl ? topImageEl.getBoundingClientRect().bottom : window.innerHeight * 0.3);
   const letters = TYPES.map((type, i) => {
     const el = document.createElement('div');
     el.style.cssText = 'position:absolute;top:0;left:0;pointer-events:auto;touch-action:none;will-change:transform;';
     el.innerHTML = `<img src="${type}.svg" draggable="false" style="height:${LH_FRAC*100}vh;width:auto;display:block;pointer-events:none;">`;
     container.appendChild(el);
-    // 초기 위치: topImage 아래쪽에서 시작
-    const startY = window.innerHeight * 0.3;
     return {
       el, type, xFrac: X_FRACS[i], yOff: Y_OFFS[i], phase: PHASES[i],
-      y: startY, vy: 0,
+      y: initY, vy: 0,
       dragging: false, dragStartY: 0, dragBaseY: 0, lastDragY: 0, lastDragT: 0,
     };
   });
 
+  let everPlayed = false; // 음악을 한번이라도 재생했는지
   let lastT = performance.now();
   function tick(now) {
     const dt = Math.min((now - lastT) / 1000, 0.05);
@@ -838,26 +839,28 @@ function updateProgress() {
     const lh = LH_FRAC * H;
     const t = now / 1000;
 
-    // topImage bottom 위치
     const topImgBottom = topImageEl ? topImageEl.getBoundingClientRect().bottom : 80;
-    const floatBaseY = topImgBottom;
 
     for (const l of letters) {
       if (!l.dragging) {
         if (isPlaying) {
+          everPlayed = true;
           // topImage 바로 아래 위치로 spring
-          const tgt = floatBaseY + l.yOff;
+          const tgt = topImgBottom + l.yOff;
           l.vy += (-SPRING * (l.y - tgt) - DAMP * l.vy) * dt;
           l.y += l.vy * dt;
+        } else if (!everPlayed) {
+          // 음악 시작 전: 그냥 topImage 아래 고정 (물리 없음)
+          l.y = topImgBottom + l.yOff;
+          l.vy = 0;
         } else {
+          // 일시정지 (재생 후): b 아래, o/p 위
           if (l.type === 'b') {
-            // b: 중력으로 아래 낙하
             l.vy = (l.vy + GRAVITY * dt) * (1 - 1.5 * dt);
             l.y += l.vy * dt;
             const floor = H - PLAYER_H - lh;
             if (l.y >= floor) { l.y = floor; l.vy = 0; }
           } else {
-            // o, p: 위로 올라감
             l.vy = (l.vy - 700 * dt) * (1 - 0.8 * dt);
             l.y += l.vy * dt;
             if (l.y < -lh - 50) { l.y = -lh - 50; l.vy = 0; }
