@@ -467,9 +467,9 @@ function goTo(target) {
 
 function getZone(x) {
   const w = window.innerWidth;
-  if (x < w * 0.25) return 'lefttop';
-  if (x > w * 0.75) return 'righttop';
-  return 'top';
+  if (x < w * 0.18) return 'lefttop';
+  if (x > w * 0.82) return 'righttop';
+  return 'front';
 }
 
 let lastZone = 'front';
