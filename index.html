@@ -19,21 +19,11 @@
     height: 100vh;
     height: calc(100vh + env(safe-area-inset-bottom));
   }
-  @media (max-width: 600px) {
-    #topImage {
-      width: 760px !important;
-    }
-  }
+
 </style>
 </head>
 <body>
 <canvas id="dotCanvas"></canvas>
-<div id="charWrap" style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);height:75vh;z-index:30;pointer-events:none;">
-  <video id="vid-front-to-righttop" src="front-to-righttop.mp4" muted playsinline preload="auto" style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);height:75vh;opacity:0;transition:opacity 0.05s;"></video>
-  <video id="vid-front-to-lefttop" src="front-to-lefttop.mp4" muted playsinline preload="auto" style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);height:75vh;opacity:0;transition:opacity 0.05s;"></video>
-  <video id="vid-righttop-to-front" src="righttop-to-front.mp4" muted playsinline preload="auto" style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);height:75vh;opacity:0;transition:opacity 0.05s;"></video>
-  <video id="vid-lefttop-to-righttop" src="lefttop-to-righttop.mp4" muted playsinline preload="auto" style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);height:75vh;opacity:0;transition:opacity 0.05s;"></video>
-</div>
 
 <canvas id="idleCanvas" style="
   position: absolute;
@@ -51,7 +41,7 @@
   top: 80px;
   left: 50%;
   transform: translateX(-50%);
-  width: 760px;
+  width: 380px;
   z-index: 10;
   pointer-events: none;
 " />
@@ -207,6 +197,19 @@ function animate() {
   requestAnimationFrame(animate);
 }
 
+window.addEventListener('mousemove', (e) => {
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
+});
+
+window.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  const touch = e.touches[0];
+  mouse.x = touch.clientX;
+  mouse.y = touch.clientY;
+  mouse.isTouch = true;
+}, { passive: false });
+
 window.addEventListener('mouseleave', () => {
   mouse.x = -9999;
   mouse.y = -9999;
@@ -217,100 +220,10 @@ window.addEventListener('touchend', () => {
   mouse.y = -9999;
   mouse.isTouch = false;
 });
-// ---- 캐릭터 영상 상태 머신 ----
-const vidEls = {
-  'front-to-righttop':   document.getElementById('vid-front-to-righttop'),
-  'front-to-lefttop':    document.getElementById('vid-front-to-lefttop'),
-  'righttop-to-front':   document.getElementById('vid-righttop-to-front'),
-  'lefttop-to-righttop': document.getElementById('vid-lefttop-to-righttop'),
-};
 
-const TRANSITIONS = {
-  'front':    { 'righttop': ['front-to-righttop'],
-                'lefttop':  ['front-to-lefttop'] },
-  'righttop': { 'front':    ['righttop-to-front'],
-                'lefttop':  ['righttop-to-front', 'front-to-lefttop'] },
-  'lefttop':  { 'righttop': ['lefttop-to-righttop'],
-                'front':    ['lefttop-to-righttop', 'righttop-to-front'] },
-};
 
-let currentState = 'front';
-let activeVid = null;
-let isTransitioning = false;
-let pendingState = null;
-let transitionQueue = [];
 
-function hideAll() {
-  Object.values(vidEls).forEach(v => { v.opacity = 0; v.style.opacity = 0; v.pause(); });
-}
 
-function showVid(key) {
-  hideAll();
-  const v = vidEls[key];
-  v.currentTime = 0;
-  v.style.opacity = 1;
-  v.play();
-  activeVid = v;
-  return v;
-}
-
-function playNext() {
-  if (transitionQueue.length === 0) {
-    isTransitioning = false;
-    if (activeVid) activeVid.pause();
-    if (pendingState && pendingState !== currentState) {
-      const next = pendingState;
-      pendingState = null;
-      startTransition(next);
-    }
-    return;
-  }
-  const key = transitionQueue.shift();
-  const v = showVid(key);
-  const parts = key.split('-to-');
-  currentState = parts[parts.length - 1];
-  v.onended = playNext;
-}
-
-function startTransition(target) {
-  if (isTransitioning) { pendingState = target; return; }
-  const chain = TRANSITIONS[currentState]?.[target];
-  if (!chain) return;
-  isTransitioning = true;
-  transitionQueue = [...chain];
-  playNext();
-}
-
-function getZone(x) {
-  const w = window.innerWidth;
-  if (x < w * 0.33) return 'lefttop';
-  if (x > w * 0.66) return 'righttop';
-  return 'front';
-}
-
-let lastZone = 'front';
-window.addEventListener('mousemove', (e) => {
-  mouse.x = e.clientX;
-  mouse.y = e.clientY;
-  const zone = getZone(e.clientX);
-  if (zone !== lastZone) {
-    lastZone = zone;
-    startTransition(zone);
-  }
-});
-
-window.addEventListener('touchmove', (e) => {
-  e.preventDefault();
-  const touch = e.touches[0];
-  mouse.x = touch.clientX;
-  mouse.y = touch.clientY;
-  mouse.isTouch = true;
-  const zone = getZone(touch.clientX);
-  if (zone !== lastZone) {
-    lastZone = zone;
-    startTransition(zone);
-  }
-}, { passive: false });
 
 
 
