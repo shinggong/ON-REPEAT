@@ -291,16 +291,22 @@ let eyeStaticKey = null;
 let eyeStaticFrame = null;
 
 function startEyeRedraw(key, frame) {
-  if (eyeRedrawTimer) cancelAnimationFrame(eyeRedrawTimer);
+  stopEyeRedraw();
   eyeStaticKey = key;
   eyeStaticFrame = frame;
+  const capturedKey = key;
+  const capturedFrame = frame;
+  const sprite = SPRITES[capturedKey];
+  const img = imgs[capturedKey];
+  if (!sprite || !img) return;
+  const sx = (capturedFrame % sprite.cols) * FRAME_SIZE;
+  const sy = Math.floor(capturedFrame / sprite.cols) * FRAME_SIZE;
   function loop() {
-    idleCtx.clearRect(0, 0, 960, 960);
-    drawEyes(eyeStaticKey, eyeStaticFrame);
-    idleCtx.drawImage(imgs[eyeStaticKey],
-      (eyeStaticFrame % SPRITES[eyeStaticKey].cols) * FRAME_SIZE,
-      Math.floor(eyeStaticFrame / SPRITES[eyeStaticKey].cols) * FRAME_SIZE,
-      FRAME_SIZE, FRAME_SIZE, 0, 0, 960, 960);
+    try {
+      idleCtx.clearRect(0, 0, 960, 960);
+      drawEyes(capturedKey, capturedFrame);
+      idleCtx.drawImage(img, sx, sy, FRAME_SIZE, FRAME_SIZE, 0, 0, 960, 960);
+    } catch(e) { /* 에러 시 다음 프레임에서 재시도 */ }
     eyeRedrawTimer = requestAnimationFrame(loop);
   }
   eyeRedrawTimer = requestAnimationFrame(loop);
