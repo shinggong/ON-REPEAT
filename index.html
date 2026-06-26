@@ -658,7 +658,7 @@ function returnToFront() {
 
 function resetIdleTimer() {
   clearTimeout(idleTimeout);
-  idleTimeout = setTimeout(returnToFront, 1000);
+  idleTimeout = setTimeout(returnToFront, 500);
 }
 
 window.addEventListener('mousemove', (e) => {
