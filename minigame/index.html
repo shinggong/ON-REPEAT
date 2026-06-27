@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>★</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #fff;
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  #scene {
+    position: relative;
+    width: min(100vw, 520px);
+    /* 세로 길이는 타일들이 결정 */
+  }
+  .girl-wrap {
+    position: absolute;
+    overflow: hidden;
+  }
+  .girl-wrap img {
+    width: 100%;
+    display: block;
+    /* margin-top으로 크롭 위치 조정 */
+  }
+  #cat {
+    position: absolute;
+    pointer-events: none;
+    opacity: 0;
+    width: 20%;
+    mix-blend-mode: multiply;
+  }
+  #cat.show {
+    animation: catPop var(--dur) ease-in-out forwards;
+  }
+  @keyframes catPop {
+    0%   { opacity: 0; transform: scale(0.4) rotate(var(--rot)); }
+    18%  { opacity: 1; transform: scale(1.08) rotate(calc(var(--rot) * 0.2)); }
+    75%  { opacity: 1; transform: scale(1)    rotate(0deg); }
+    100% { opacity: 0; transform: scale(0.6)  rotate(calc(var(--rot) * -0.3)); }
+  }
+</style>
+</head>
+<body>
+<div id="scene">
+  <img id="cat" src="cat.png" alt="cat">
+</div>
+
+<script>
+// ── 레이아웃 정의 ──────────────────────────────────────────
+// 원본 이미지 비율: 2251 x 2944 → aspect = 2944/2251 ≈ 1.308 (h/w)
+const IMG_AR = 2944 / 2251;
+
+// 각 행: [열수, 너비비율(%), 크롭상단비율, 크롭하단비율, 상단y비율]
+// y비율은 씬 높이 대비
+const ROWS = [
+  [3, 0.42, 0.00, 0.68, 0.00],
+  [4, 0.32, 0.00, 0.54, 0.13],
+  [3, 0.44, 0.02, 0.52, 0.22],
+  [4, 0.34, 0.04, 0.50, 0.32],
+  [3, 0.46, 0.06, 0.50, 0.42],
+  [4, 0.36, 0.08, 0.48, 0.52],
+  [3, 0.48, 0.10, 0.46, 0.61],
+  [4, 0.38, 0.12, 0.45, 0.71],
+  [3, 0.52, 0.14, 0.45, 0.81],
+];
+
+// 씬 세로 높이 = 마지막 행 y + 마지막 행 타일 높이
+// 씬 너비에 맞게 계산
+const scene = document.getElementById('scene');
+
+function buildLayout() {
+  // 기존 girl-wrap 제거
+  scene.querySelectorAll('.girl-wrap').forEach(el => el.remove());
+
+  const sceneW = scene.offsetWidth;
+
+  // 씬 높이 추정: 마지막 행
+  const lastRow = ROWS[ROWS.length - 1];
+  const lastTileW = sceneW * lastRow[1];
+  const lastCropH = (lastRow[3] - lastRow[2]) * IMG_AR * lastTileW;
+  const sceneH = sceneW * 1.8 * (lastRow[4] + lastCropH / (sceneW * 1.8) + 0.02);
+
+  // 씬 높이를 먼저 결정
+  const SCENE_H = sceneW * 2.15;
+  scene.style.height = SCENE_H + 'px';
+
+  let zIdx = 1;
+  const tileZMap = []; // 각 타일의 z-index 기록 (고양이 위치 계산용)
+
+  ROWS.forEach(([cols, widthFrac, cropTop, cropBot, yFrac], rowIdx) => {
+    const tileW  = sceneW * widthFrac;
+    const cropH  = (cropBot - cropTop) * IMG_AR * tileW; // 표시될 높이
+    const imgH   = IMG_AR * tileW;                        // 전체 이미지 높이
+    const topY   = SCENE_H * yFrac;
+    const step   = (sceneW - tileW) / Math.max(cols - 1, 1);
+
+    for (let i = 0; i < cols; i++) {
+      const x = i * step;
+      const wrap = document.createElement('div');
+      wrap.className = 'girl-wrap';
+      wrap.style.cssText = `
+        left: ${x}px;
+        top: ${topY}px;
+        width: ${tileW}px;
+        height: ${cropH}px;
+        z-index: ${zIdx};
+      `;
+      tileZMap.push({ z: zIdx, x, y: topY, w: tileW, h: cropH });
+
+      const img = document.createElement('img');
+      img.src = 'text.png';
+      img.style.marginTop = `-${cropTop * imgH}px`;
+      wrap.appendChild(img);
+      scene.appendChild(wrap);
+
+      zIdx++;
+    }
+  });
+
+  return { tileZMap, totalZ: zIdx - 1, sceneH: SCENE_H, sceneW };
+}
+
+let layout = buildLayout();
+window.addEventListener('resize', () => { layout = buildLayout(); });
+
+// ── 고양이 팝업 ──────────────────────────────────────────
+const cat = document.getElementById('cat');
+
+function popCat() {
+  const { tileZMap, totalZ, sceneH, sceneW } = layout;
+
+  // 랜덤 z-index: 1 ~ totalZ (레이어 사이 어딘가)
+  const catZ = 1 + Math.floor(Math.random() * totalZ);
+  cat.style.zIndex = catZ;
+
+  // 랜덤 위치: 씬 내 어딘가
+  const catW = sceneW * 0.20;
+  const catH = catW * (792 / 485);
+  const x = Math.random() * (sceneW - catW * 0.5);
+  const y = Math.random() * (sceneH - catH * 0.5);
+
+  cat.style.left = x + 'px';
+  cat.style.top  = y + 'px';
+
+  const rot = (Math.random() * 40 - 20).toFixed(1);
+  const dur = (700 + Math.random() * 1100).toFixed(0);
+  cat.style.setProperty('--rot', rot + 'deg');
+  cat.style.setProperty('--dur', dur + 'ms');
+
+  cat.classList.remove('show');
+  void cat.offsetWidth;
+  cat.classList.add('show');
+
+  setTimeout(() => {
+    cat.classList.remove('show');
+  }, parseInt(dur) + 50);
+}
+
+function scheduleNext() {
+  const delay = 400 + Math.random() * 1400;
+  setTimeout(() => {
+    popCat();
+    scheduleNext();
+  }, delay);
+}
+
+// 이미지 로드 후 시작
+let loaded = 0;
+const total = scene.querySelectorAll('img').length;
+document.querySelectorAll('img').forEach(img => {
+  if (img.complete) { loaded++; if (loaded === 1) scheduleNext(); }
+  else img.addEventListener('load', () => { loaded++; if (loaded === 1) scheduleNext(); });
+});
+// 혹시 바로 시작
+setTimeout(scheduleNext, 500);
+</script>
+</body>
+</html>
