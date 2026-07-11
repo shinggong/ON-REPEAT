@@ -883,12 +883,17 @@ function updateProgress() {
     document.head.appendChild(styleEl);
     let frame = 0;
     document.documentElement.classList.add('cursor-f0');
-    function applyFrame() {
+    let lastFlip = 0;
+    function applyFrame(ts) {
+      if (ts - lastFlip < 200) return;
+      lastFlip = ts;
       document.documentElement.classList.remove(`cursor-f${frame}`);
       frame = 1 - frame;
       document.documentElement.classList.add(`cursor-f${frame}`);
     }
-    setInterval(applyFrame, 200);
+    // 실제 mousemove 이벤트에 맞춰서만 프레임을 바꿔야 브라우저가 커서를 제대로 다시 그림.
+    // setInterval로 무조건 바꾸면 마우스가 멈춰 있을 때 기본 커서로 새는 문제가 있었음.
+    window.addEventListener('mousemove', () => applyFrame(performance.now()));
   };
   cursorImg.src = 'cursor2.png';
 })();
