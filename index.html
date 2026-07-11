@@ -236,23 +236,6 @@ function animate() {
   requestAnimationFrame(animate);
 }
 
-window.addEventListener('mousemove', (e) => {
-  mouse.x = e.clientX;
-  mouse.y = e.clientY;
-  const zone = getZone(e.clientX, e.clientY);
-  if (zone !== lastZone) { lastZone = zone; goTo(zone); }
-});
-
-window.addEventListener('touchmove', (e) => {
-  e.preventDefault();
-  const touch = e.touches[0];
-  mouse.x = touch.clientX;
-  mouse.y = touch.clientY;
-  mouse.isTouch = true;
-  const zone = getZone(touch.clientX, touch.clientY);
-  if (zone !== lastZone) { lastZone = zone; goTo(zone); }
-}, { passive: false });
-
 window.addEventListener('mouseleave', () => {
   mouse.x = -9999;
   mouse.y = -9999;
@@ -267,14 +250,19 @@ window.addEventListener('touchend', () => {
 
 
 
-
-
-
 // ---- 캐릭터 스프라이트 상태머신 ----
 const idleCanvas = document.getElementById('idleCanvas');
 const idleCtx = idleCanvas.getContext('2d');
 idleCanvas.width = 960;
 idleCanvas.height = 960;
+
+// getBoundingClientRect()는 강제 레이아웃 재계산을 유발함. 눈동자 추적이
+// 매 애니메이션 프레임(최대 60fps)마다 이 값을 읽어서 리사이즈 때만
+// 다시 계산하도록 캐싱한다.
+let idleCanvasRect = idleCanvas.getBoundingClientRect();
+function updateIdleCanvasRect() { idleCanvasRect = idleCanvas.getBoundingClientRect(); }
+window.addEventListener('resize', updateIdleCanvasRect);
+window.addEventListener('orientationchange', updateIdleCanvasRect);
 
 const FRAME_SIZE = 960;
 const FPS_IDLE = 24;
@@ -417,7 +405,7 @@ function drawEyes(key, frame) {
   const frameEyes = EYE_DATA[key][frame];
   if (!frameEyes) return;
 
-  const rect = idleCanvas.getBoundingClientRect();
+  const rect = idleCanvasRect;
   const scaleX = 960 / rect.width;
   const scaleY = 960 / rect.height;
   const mx = (mouse.x - rect.left) * scaleX;
@@ -493,7 +481,7 @@ function drawFrame(key, frame) {
   try { idleCtx.drawImage(img, col*FRAME_SIZE, row*FRAME_SIZE, FRAME_SIZE, FRAME_SIZE, 0, 0, 960, 960); } catch(e) {}
 }
 
-function playAnim(key, reverse, loop, onEnd) {
+function playAnim(key, reverse, loop, onEnd, speedMul) {
   if (animTimer) cancelAnimationFrame(animTimer);
   stopEyeRedraw();
   animKey = key;
@@ -503,6 +491,7 @@ function playAnim(key, reverse, loop, onEnd) {
   const s = SPRITES[key];
   const isIdle = key === 'idle';
   const baseFps = s.fps ?? (isIdle ? FPS_IDLE : FPS_TRANS);
+  const mul = speedMul || 1;
   animFrame = reverse ? s.total - 1 : 0;
   drawFrame(key, animFrame);
 
@@ -514,13 +503,13 @@ function playAnim(key, reverse, loop, onEnd) {
     const elapsed = Math.min(now - lastTime, 16);
     lastTime = now;
 
-    let speed = 1;
+    let speed = mul;
     if (!isIdle) {
       // sine ease-out: 부드럽게 감속
       const progress = reverse
         ? (s.total - 1 - animFrame) / Math.max(s.total - 1, 1)
         : animFrame / Math.max(s.total - 1, 1);
-      speed = 1.0 + 0.4 * Math.cos(progress * Math.PI / 2);
+      speed = (1.0 + 0.4 * Math.cos(progress * Math.PI / 2)) * mul;
     }
 
     subFrame += (elapsed / (1000 / baseFps)) * speed;
@@ -570,6 +559,9 @@ function startIdle(skipInitialDraw) {
 let transQueue = [];
 let isTransitioning = false;
 let pendingZone = null;
+// 대각선 이동처럼 전환 클립을 2~3개 이어붙여야 하는 경우, 홉 수만큼
+// 재생 속도를 올려서 목적지까지 걸리는 총 시간이 크게 늘어나지 않게 한다.
+let chainSpeedMul = 1;
 
 function runQueue() {
   if (transQueue.length === 0) {
@@ -594,7 +586,7 @@ function runQueue() {
   playAnim(key, rev, false, () => {
     charState = rev ? ends.rev : ends.fwd;
     runQueue();
-  });
+  }, chainSpeedMul);
 }
 
 function goTo(target) {
@@ -607,12 +599,13 @@ function goTo(target) {
     startEyeRedraw(animKey, animFrame);
     return;
   }
+  chainSpeedMul = 1 + 0.35 * (chain.length - 1);
   transQueue = [...chain];
   runQueue();
 }
 
 function getZone(x, y) {
-  const rect = idleCanvas.getBoundingClientRect();
+  const rect = idleCanvasRect;
   const isLeft = x < rect.left + rect.width * 0.30;
   const isRight = x > rect.right - rect.width * 0.30;
   const isTop = y < rect.top + rect.height * 0.5;
@@ -633,6 +626,7 @@ function returnToFront() {
   if (!path || path.length === 0) { charState = 'front'; lastZone = 'front'; startIdle(true); return; }
   isTransitioning = true;
   transQueue = [...path];
+  chainSpeedMul = 1 + 0.35 * (path.length - 1);
   pendingZone = null;
   if (animTimer) cancelAnimationFrame(animTimer);
   stopEyeRedraw();
@@ -651,7 +645,7 @@ function returnToFront() {
     playAnim(key, rev, false, () => {
       charState = STATE_ENDS[key][rev ? 'rev' : 'fwd'];
       playNext();
-    });
+    }, chainSpeedMul);
   }
   playNext();
 }
@@ -698,7 +692,7 @@ window.addEventListener('touchend', () => {
 // 얼굴 클릭 → shake
 let isShaking = false;
 function isFaceClick(x, y) {
-  const rect = idleCanvas.getBoundingClientRect();
+  const rect = idleCanvasRect;
   const rx = (x - rect.left) / rect.width;
   const ry = (y - rect.top) / rect.height;
   return rx > 0.2 && rx < 0.8 && ry > 0.1 && ry < 0.85;
