@@ -15,10 +15,10 @@
     height: 100%;
     background: #0C0B0B;
     overflow: hidden;
-    cursor: url('cursor2.png') 4 4, auto;
+    cursor: none;
   }
-  *, *::before, *::after { cursor: url('cursor2.png') 4 4, auto !important; user-select: none !important; -webkit-user-select: none !important; }
-  #player-ui, #player-ui * { cursor: url('cursor2.png') 4 4, auto !important; }
+  *, *::before, *::after { cursor: none !important; user-select: none !important; -webkit-user-select: none !important; }
+  #player-ui, #player-ui * { cursor: none !important; }
 
   canvas { -webkit-user-drag: none; }
   #dotCanvas {
@@ -865,48 +865,38 @@ function updateProgress() {
 })();
 
 // ---- 커서 스프라이트 애니메이션 (cursor2.png: 100×50, 프레임 2개 50×50) ----
+// 네이티브 cursor: url()은 마우스가 멈추면 브라우저가 다시 그려주지 않아 애니메이션이
+// 끊기거나 기본 화살표로 새는 문제가 있어, 실제 커서는 숨기고(cursor:none) 마우스를
+// 따라다니는 DOM 엘리먼트로 애니메이션을 그린다 (움직임과 무관하게 항상 파닥임).
 (function() {
   const cursorImg = new Image();
   cursorImg.onload = () => {
-    const canvases = [0, 1].map(i => {
+    const frames = [0, 1].map(i => {
       const c = document.createElement('canvas');
       c.width = c.height = 50;
       c.getContext('2d').drawImage(cursorImg, i * 50, 0, 50, 50, 0, 0, 50, 50);
       return c.toDataURL();
     });
-    const styleEl = document.createElement('style');
-    styleEl.textContent = canvases.map((url, i) => [
-      `html.cursor-f${i},html.cursor-f${i} body{cursor:url("${url}") 25 25,auto}`,
-      `html.cursor-f${i} *,html.cursor-f${i} *::before,html.cursor-f${i} *::after{cursor:url("${url}") 25 25,auto!important}`,
-      `html.cursor-f${i} #player-ui,html.cursor-f${i} #player-ui *{cursor:url("${url}") 25 25,auto!important}`,
-    ].join('')).join('');
-    document.head.appendChild(styleEl);
-    let frame = 0;
-    document.documentElement.classList.add('cursor-f0');
+    const el = document.createElement('div');
+    el.style.cssText = [
+      'position:fixed', 'top:0', 'left:0', 'width:50px', 'height:50px',
+      'background-size:50px 50px', 'pointer-events:none', 'z-index:2147483647',
+      'opacity:0', 'will-change:transform',
+    ].join(';');
+    el.style.backgroundImage = `url("${frames[0]}")`;
+    document.body.appendChild(el);
 
-    // 마우스가 실제로 움직이는 동안에만 isMoving을 true로 유지.
-    let isMoving = false;
-    let stopTimer = null;
-    window.addEventListener('mousemove', () => {
-      isMoving = true;
-      clearTimeout(stopTimer);
-      stopTimer = setTimeout(() => { isMoving = false; }, 250);
+    let shown = false;
+    window.addEventListener('mousemove', (e) => {
+      el.style.transform = `translate3d(${e.clientX - 25}px, ${e.clientY - 25}px, 0)`;
+      if (!shown) { shown = true; el.style.opacity = '1'; }
     });
 
-    // rAF로 화면 갱신 주기에 맞춰 프레임을 바꿔야 브라우저가 커서를 확실히 다시 그림
-    // (setInterval은 타이밍이 어긋나 커서가 안 바뀌거나, 멈춰 있을 때 기본 커서로 새는 문제가 있었음).
-    // isMoving일 때만 갱신하므로 마우스가 멈추면 마지막 프레임에 고정된다.
-    let lastFlip = 0;
-    function tick(ts) {
-      if (isMoving && ts - lastFlip >= 200) {
-        lastFlip = ts;
-        document.documentElement.classList.remove(`cursor-f${frame}`);
-        frame = 1 - frame;
-        document.documentElement.classList.add(`cursor-f${frame}`);
-      }
-      requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
+    let frame = 0;
+    setInterval(() => {
+      frame = 1 - frame;
+      el.style.backgroundImage = `url("${frames[frame]}")`;
+    }, 200);
   };
   cursorImg.src = 'cursor2.png';
 })();
