@@ -875,18 +875,19 @@ function updateProgress() {
       return c.toDataURL();
     });
     const styleEl = document.createElement('style');
+    styleEl.textContent = canvases.map((url, i) => [
+      `html.cursor-f${i},html.cursor-f${i} body{cursor:url("${url}") 25 25,auto}`,
+      `html.cursor-f${i} *,html.cursor-f${i} *::before,html.cursor-f${i} *::after{cursor:url("${url}") 25 25,auto!important}`,
+      `html.cursor-f${i} #player-ui,html.cursor-f${i} #player-ui *{cursor:url("${url}") 25 25,auto!important}`,
+    ].join('')).join('');
     document.head.appendChild(styleEl);
     let frame = 0;
+    document.documentElement.classList.add('cursor-f0');
     function applyFrame() {
-      const url = canvases[frame];
-      styleEl.textContent = [
-        `html,body{cursor:url("${url}") 25 25,auto}`,
-        `*,*::before,*::after{cursor:url("${url}") 25 25,auto!important}`,
-        `#player-ui,#player-ui *{cursor:url("${url}") 25 25,auto!important}`,
-      ].join('');
+      document.documentElement.classList.remove(`cursor-f${frame}`);
       frame = 1 - frame;
+      document.documentElement.classList.add(`cursor-f${frame}`);
     }
-    applyFrame();
     setInterval(applyFrame, 200);
   };
   cursorImg.src = 'cursor2.png';
