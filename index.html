@@ -458,9 +458,9 @@ function drawEyes(key, frame) {
     idleCtx.beginPath();
     idleCtx.ellipse(cx, cy, sRx, sRy, 0, 0, Math.PI*2);
     const scl = idleCtx.createRadialGradient(cx, cy - sRy*0.35, sRy*0.2, cx, cy, sRy*1.1);
-    scl.addColorStop(0, '#fcf6f0');
-    scl.addColorStop(0.55, '#f1e2d9');
-    scl.addColorStop(1, '#c9a094');
+    scl.addColorStop(0, '#fdf9f5');
+    scl.addColorStop(0.6, '#f8efe9');
+    scl.addColorStop(1, '#ecd9d0');
     idleCtx.fillStyle = scl;
     idleCtx.fill();
 
@@ -483,13 +483,10 @@ function drawEyes(key, frame) {
     const px = cx + p.ox, py = cy + p.oy;
     idleCtx.beginPath();
     idleCtx.arc(px, py, PUPIL_R, 0, Math.PI*2);
-    // 검정 대신 웜 브라운 홍채 + 어두운 웜 동공 (하이라이트 없음)
+    // 검정 대신 어두운 브라운 동공 (하이라이트 없음)
     const pg = idleCtx.createRadialGradient(px, py, 0, px, py, PUPIL_R);
-    pg.addColorStop(0, '#2b0f0a');
-    pg.addColorStop(0.38, '#3a1710');
-    pg.addColorStop(0.45, '#9c4a2a');
-    pg.addColorStop(0.85, '#7d3720');
-    pg.addColorStop(1, '#4f2010');
+    pg.addColorStop(0, '#2e1710');
+    pg.addColorStop(1, '#4a2518');
     idleCtx.fillStyle = pg;
     idleCtx.fill();
   }
