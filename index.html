@@ -255,6 +255,8 @@ const idleCanvas = document.getElementById('idleCanvas');
 const idleCtx = idleCanvas.getContext('2d');
 idleCanvas.width = 960;
 idleCanvas.height = 960;
+idleCtx.imageSmoothingEnabled = true;
+idleCtx.imageSmoothingQuality = 'high';
 
 // getBoundingClientRect()는 강제 레이아웃 재계산을 유발함. 눈동자 추적이
 // 매 애니메이션 프레임(최대 60fps)마다 이 값을 읽어서 리사이즈 때만
@@ -441,9 +443,20 @@ function drawEyes(key, frame) {
     const eyeScale = 1.5;
     const sRx = rx * eyeScale;
     const sRy = ry * eyeScale;
+    // 흰자: 순백 대신 따뜻한 오프화이트 + 가장자리 음영으로 입체감
     idleCtx.beginPath();
     idleCtx.ellipse(cx, cy, sRx, sRy, 0, 0, Math.PI*2);
-    idleCtx.fillStyle = '#ffffff';
+    const scl = idleCtx.createRadialGradient(cx, cy + sRy*0.1, sRy*0.15, cx, cy, Math.max(sRx, sRy));
+    scl.addColorStop(0, '#f7f0ea');
+    scl.addColorStop(0.65, '#e6d9d2');
+    scl.addColorStop(1, '#b9a39e');
+    idleCtx.fillStyle = scl;
+    idleCtx.fill();
+    // 윗눈꺼풀이 드리우는 그림자
+    const lid = idleCtx.createLinearGradient(0, cy - sRy, 0, cy + sRy*0.2);
+    lid.addColorStop(0, 'rgba(70,40,40,0.55)');
+    lid.addColorStop(1, 'rgba(70,40,40,0)');
+    idleCtx.fillStyle = lid;
     idleCtx.fill();
 
     const p = pupilCurrent[eyeIdx];
@@ -462,9 +475,18 @@ function drawEyes(key, frame) {
       p.ox += (targetOx - p.ox) * 0.10;
       p.oy += (targetOy - p.oy) * 0.10;
     }
+    const px = cx + p.ox, py = cy + p.oy;
     idleCtx.beginPath();
-    idleCtx.arc(cx + p.ox, cy + p.oy, PUPIL_R, 0, Math.PI*2);
-    idleCtx.fillStyle = '#111';
+    idleCtx.arc(px, py, PUPIL_R, 0, Math.PI*2);
+    const pg = idleCtx.createRadialGradient(px - PUPIL_R*0.2, py - PUPIL_R*0.2, PUPIL_R*0.1, px, py, PUPIL_R);
+    pg.addColorStop(0, '#2a2223');
+    pg.addColorStop(1, '#0a0808');
+    idleCtx.fillStyle = pg;
+    idleCtx.fill();
+    // 동공 하이라이트(반짝임)
+    idleCtx.beginPath();
+    idleCtx.arc(px - PUPIL_R*0.32, py - PUPIL_R*0.36, PUPIL_R*0.2, 0, Math.PI*2);
+    idleCtx.fillStyle = 'rgba(255,255,255,0.85)';
     idleCtx.fill();
   }
 }
