@@ -465,11 +465,8 @@ function drawEyes(key, frame) {
     idleCtx.fill();
 
     const p = pupilCurrent[eyeIdx];
-    if (isShakeAnim) {
-      // shake: 동공 중심 고정
-      p.ox += (0 - p.ox) * 0.15;
-      p.oy += (0 - p.oy) * 0.15;
-    } else {
+    {
+      // shake 중에도 가운데 고정하지 않고 평소처럼 마우스를 따라간다 (shake는 조금 더 빠르게 반응)
       const dx = mx - cx, dy = my - cy;
       const dist = Math.sqrt(dx*dx + dy*dy);
       // 동공이 실제 눈구멍(rx/ry) 안에서 움직이도록 제한
@@ -477,8 +474,9 @@ function drawEyes(key, frame) {
       const limitY = Math.max(0, ry - PUPIL_R);
       const targetOx = dist > 0 ? Math.min(Math.abs(dx), limitX) * (dx < 0 ? -1 : 1) : 0;
       const targetOy = dist > 0 ? Math.min(Math.abs(dy), limitY) * (dy < 0 ? -1 : 1) : 0;
-      p.ox += (targetOx - p.ox) * 0.10;
-      p.oy += (targetOy - p.oy) * 0.10;
+      const k = isShakeAnim ? 0.2 : 0.10;
+      p.ox += (targetOx - p.ox) * k;
+      p.oy += (targetOy - p.oy) * k;
     }
     const px = cx + p.ox, py = cy + p.oy;
     idleCtx.beginPath();
