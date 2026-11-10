@@ -284,26 +284,37 @@ const SPRITES = {
 // 이미지 프리로드
 const imgs = {};
 let loadedCount = 0;
+let spritesReady = false; // 로딩 중 goTo()가 시작한 전환을 startIdle()이 취소해 상태가 굳는 것 방지
 Object.entries(SPRITES).forEach(([key, s]) => {
   const img = new Image();
   img.src = s.src;
   img.onload = () => {
     loadedCount++;
     if (loadedCount === Object.keys(SPRITES).length) {
-      // GPU 텍스처 업로드 pre-warm: 모든 스프라이트 첫 접근 지연 제거
+      // 디코딩을 먼저 끝내고, 시트마다 첫/마지막 프레임을 실제 크기로 그려서
+      // GPU 업로드까지 미리 치른다 (첫 전환 때 멈칫하는 것 방지).
       const warmCanvas = document.createElement('canvas');
-      warmCanvas.width = 1; warmCanvas.height = 1;
+      warmCanvas.width = FRAME_SIZE; warmCanvas.height = FRAME_SIZE;
       const warmCtx = warmCanvas.getContext('2d');
-      Object.values(imgs).forEach(i => { try { warmCtx.drawImage(i, 0, 0, 1, 1, 0, 0, 1, 1); } catch(e) {} });
-      const ls = document.getElementById('loading-screen');
-      ls.classList.add('hidden');
-      setTimeout(() => ls.remove(), 600);
-      startIdle();
-      // 로딩 완료 즉시 현재 마우스 위치로 전환
-      if (mouse.x > -9999) {
-        const zone = getZone(mouse.x, mouse.y);
-        if (zone !== 'front') { lastZone = zone; goTo(zone); }
-      }
+      const decodeAll = Promise.all(Object.values(imgs).map(i => (i.decode ? i.decode() : Promise.resolve()).catch(() => {})));
+      // decode()가 오래 걸리거나 멈춰도 로딩 화면에 갇히지 않도록 최대 4초만 기다린다
+      Promise.race([decodeAll, new Promise(r => setTimeout(r, 4000))]).then(() => {
+        Object.entries(SPRITES).forEach(([k, sp]) => {
+          [0, sp.total - 1].forEach(f => {
+            try { warmCtx.drawImage(imgs[k], (f % sp.cols) * FRAME_SIZE, Math.floor(f / sp.cols) * FRAME_SIZE, FRAME_SIZE, FRAME_SIZE, 0, 0, FRAME_SIZE, FRAME_SIZE); } catch(e) {}
+          });
+        });
+        const ls = document.getElementById('loading-screen');
+        ls.classList.add('hidden');
+        setTimeout(() => ls.remove(), 600);
+        spritesReady = true;
+        startIdle();
+        // 로딩 완료 즉시 현재 마우스 위치로 전환
+        if (mouse.x > -9999) {
+          const zone = getZone(mouse.x, mouse.y);
+          if (zone !== 'front') { lastZone = zone; goTo(zone); }
+        }
+      });
     }
   };
   imgs[key] = img;
@@ -443,20 +454,14 @@ function drawEyes(key, frame) {
     const eyeScale = 1.5;
     const sRx = rx * eyeScale;
     const sRy = ry * eyeScale;
-    // 흰자: 순백 대신 따뜻한 오프화이트 + 가장자리 음영으로 입체감
+    // 흰자: 위쪽은 밝게, 아래쪽에 웜톤 음영을 깔아서 구체 같은 입체감
     idleCtx.beginPath();
     idleCtx.ellipse(cx, cy, sRx, sRy, 0, 0, Math.PI*2);
-    const scl = idleCtx.createRadialGradient(cx, cy + sRy*0.1, sRy*0.15, cx, cy, Math.max(sRx, sRy));
-    scl.addColorStop(0, '#f7f0ea');
-    scl.addColorStop(0.65, '#e6d9d2');
-    scl.addColorStop(1, '#b9a39e');
+    const scl = idleCtx.createRadialGradient(cx, cy - sRy*0.35, sRy*0.2, cx, cy, sRy*1.1);
+    scl.addColorStop(0, '#fcf6f0');
+    scl.addColorStop(0.55, '#f1e2d9');
+    scl.addColorStop(1, '#c9a094');
     idleCtx.fillStyle = scl;
-    idleCtx.fill();
-    // 윗눈꺼풀이 드리우는 그림자
-    const lid = idleCtx.createLinearGradient(0, cy - sRy, 0, cy + sRy*0.2);
-    lid.addColorStop(0, 'rgba(70,40,40,0.55)');
-    lid.addColorStop(1, 'rgba(70,40,40,0)');
-    idleCtx.fillStyle = lid;
     idleCtx.fill();
 
     const p = pupilCurrent[eyeIdx];
@@ -478,15 +483,14 @@ function drawEyes(key, frame) {
     const px = cx + p.ox, py = cy + p.oy;
     idleCtx.beginPath();
     idleCtx.arc(px, py, PUPIL_R, 0, Math.PI*2);
-    const pg = idleCtx.createRadialGradient(px - PUPIL_R*0.2, py - PUPIL_R*0.2, PUPIL_R*0.1, px, py, PUPIL_R);
-    pg.addColorStop(0, '#2a2223');
-    pg.addColorStop(1, '#0a0808');
+    // 검정 대신 웜 브라운 홍채 + 어두운 웜 동공 (하이라이트 없음)
+    const pg = idleCtx.createRadialGradient(px, py, 0, px, py, PUPIL_R);
+    pg.addColorStop(0, '#2b0f0a');
+    pg.addColorStop(0.38, '#3a1710');
+    pg.addColorStop(0.45, '#9c4a2a');
+    pg.addColorStop(0.85, '#7d3720');
+    pg.addColorStop(1, '#4f2010');
     idleCtx.fillStyle = pg;
-    idleCtx.fill();
-    // 동공 하이라이트(반짝임)
-    idleCtx.beginPath();
-    idleCtx.arc(px - PUPIL_R*0.32, py - PUPIL_R*0.36, PUPIL_R*0.2, 0, Math.PI*2);
-    idleCtx.fillStyle = 'rgba(255,255,255,0.85)';
     idleCtx.fill();
   }
 }
@@ -522,7 +526,8 @@ function playAnim(key, reverse, loop, onEnd, speedMul) {
 
   function tick(now) {
     if (lastTime < 0) { lastTime = now; animTimer = requestAnimationFrame(tick); return; }
-    const elapsed = Math.min(now - lastTime, 16);
+    // 프레임이 늦어도 재생이 느려지지 않고 건너뛰도록 실제 경과시간 사용 (탭 복귀 등 큰 점프만 제한)
+    const elapsed = Math.min(now - lastTime, 100);
     lastTime = now;
 
     let speed = mul;
@@ -531,11 +536,12 @@ function playAnim(key, reverse, loop, onEnd, speedMul) {
       const progress = reverse
         ? (s.total - 1 - animFrame) / Math.max(s.total - 1, 1)
         : animFrame / Math.max(s.total - 1, 1);
-      speed = (1.0 + 0.4 * Math.cos(progress * Math.PI / 2)) * mul;
+      speed = (1.0 + 0.4 * Math.cos(progress * Math.PI / 2)) * mul * transBoost;
     }
 
     subFrame += (elapsed / (1000 / baseFps)) * speed;
 
+    let advanced = false;
     while (subFrame >= 1) {
       subFrame -= 1;
       animFrame += reverse ? -1 : 1;
@@ -553,8 +559,10 @@ function playAnim(key, reverse, loop, onEnd, speedMul) {
           return;
         }
       }
-      try { drawFrame(key, animFrame); } catch(e) {}
+      advanced = true;
     }
+    // 한 틱에 여러 프레임을 건너뛰어도 마지막 프레임만 한 번 그린다
+    if (advanced) { try { drawFrame(key, animFrame); } catch(e) {} }
 
     animTimer = requestAnimationFrame(tick);
   }
@@ -584,6 +592,9 @@ let pendingZone = null;
 // 대각선 이동처럼 전환 클립을 2~3개 이어붙여야 하는 경우, 홉 수만큼
 // 재생 속도를 올려서 목적지까지 걸리는 총 시간이 크게 늘어나지 않게 한다.
 let chainSpeedMul = 1;
+// 전환 도중 마우스가 다른 존으로 가면 현재 클립을 빨리 끝내고 바로 갈아탄다.
+let transBoost = 1;
+let isReturning = false;
 
 function runQueue() {
   if (transQueue.length === 0) {
@@ -612,15 +623,21 @@ function runQueue() {
 }
 
 function goTo(target) {
-  if (isShaking) return;
+  if (isShaking || !spritesReady) return;
   if (target === charState) return;
-  if (isTransitioning) { pendingZone = target; return; }
+  if (isTransitioning) {
+    pendingZone = target;
+    // 남은 중간 클립은 버리고(현재 클립만 마무리) 빠르게 재생 → 새 목적지로 바로 이어진다
+    if (!isReturning) { transQueue = []; transBoost = 2; }
+    return;
+  }
   const chain = TRANSITIONS[charState]?.[target];
   if (!chain) {
     // 전환 경로 없으면 현재 상태 유지 (캐릭터 사라짐 방지)
     startEyeRedraw(animKey, animFrame);
     return;
   }
+  transBoost = 1;
   chainSpeedMul = 1 + 0.35 * (chain.length - 1);
   transQueue = [...chain];
   runQueue();
@@ -647,6 +664,8 @@ function returnToFront() {
   const path = TRANSITIONS[charState]?.['front'];
   if (!path || path.length === 0) { charState = 'front'; lastZone = 'front'; startIdle(true); return; }
   isTransitioning = true;
+  isReturning = true;
+  transBoost = 1;
   transQueue = [...path];
   chainSpeedMul = 1 + 0.35 * (path.length - 1);
   pendingZone = null;
@@ -655,6 +674,7 @@ function returnToFront() {
   function playNext() {
     if (transQueue.length === 0) {
       isTransitioning = false;
+      isReturning = false;
       charState = 'front';
       lastZone = 'front';
       const next = pendingZone;
@@ -726,6 +746,8 @@ function triggerShake() {
   stopEyeRedraw();
   // 전환 상태 완전 초기화
   isTransitioning = false;
+  isReturning = false;
+  transBoost = 1;
   transQueue = [];
   pendingZone = null;
   // shake 흰자 lerp 초기화
@@ -799,7 +821,8 @@ window.onYouTubeIframeAPIReady = function() {
         isPlaying = e.data === YT.PlayerState.PLAYING;
         if (isPlaying) { if (window.__yarnStart) window.__yarnStart(); }
         else { if (window.__yarnStop) window.__yarnStop(); }
-        if (charState === 'front') startIdle();
+        // 전환/shake 재생 중에 startIdle()하면 진행 중인 클립이 취소되어 isTransitioning이 true로 굳는다
+        if (charState === 'front' && !isTransitioning && !isShaking) startIdle();
         updateTrackUI();
         updateProgress();
       }
